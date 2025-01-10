@@ -8,6 +8,6 @@ PUSHD .\build
 DEL *.pdb > NUL 2> NUL
 DEL *.ilk > NUL 2> NUL
 
-clang ..\src\win32_main.c %CompilerOptions% -o srend.exe -l User32.lib
+clang ..\src\win32_main.c %CompilerOptions% -o srend.exe -l User32.lib -l Gdi32.lib
 
 POPD
