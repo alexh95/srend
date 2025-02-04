@@ -1,14 +1,11 @@
 #include <windows.h>
 #include <stdint.h>
 
-typedef struct
-{
-    int Width;
-    int Height;
-    uint32_t *Pixels;
-} frame;
+#include "platform.h"
 
-static frame Frame = {0};
+#include "srend.h"
+
+static state GlobalState = {0};
 
 static BOOL Running = TRUE;
 static BITMAPINFO FrameBitmapInfo = {0};
@@ -55,10 +52,10 @@ LRESULT WindowProc(
             {
                 DeleteObject(FrameBitmap);
             }
-            FrameBitmap = CreateDIBSection(0, &FrameBitmapInfo, DIB_RGB_COLORS, (void **)&Frame.Pixels, 0, 0);
+            FrameBitmap = CreateDIBSection(0, &FrameBitmapInfo, DIB_RGB_COLORS, (void **)&GlobalState.Frame.Pixels, 0, 0);
             SelectObject(FrameDeviceContext, FrameBitmap);
-            Frame.Width = FrameBitmapInfo.bmiHeader.biWidth;
-            Frame.Height = FrameBitmapInfo.bmiHeader.biHeight;
+            GlobalState.Frame.Width = FrameBitmapInfo.bmiHeader.biWidth;
+            GlobalState.Frame.Height = FrameBitmapInfo.bmiHeader.biHeight;
         } break;
         default:
         {
@@ -76,6 +73,9 @@ int WinMain(
     int CommandShow
 )
 {
+    HMODULE RendererDll = LoadLibraryA("srend.dll");
+    update_and_draw *UpdateAndDraw = (update_and_draw *)GetProcAddress(RendererDll, "UpdateAndDraw");
+
     WNDCLASSEXA WindowClass = {0};
     WindowClass.cbSize = sizeof(WNDCLASSEX);
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -107,7 +107,6 @@ int WinMain(
     );
 
     ShowWindow(WindowHandle, CommandShow);
-    int Offset = 0;
 
     while (Running)
     {        
@@ -118,22 +117,10 @@ int WinMain(
             DispatchMessageA(&Message);
         }
 
-        uint8_t Red = 0;//(Offset / 8) & 0xFF;
-
-        for (int Y = 0; Y < Frame.Height; ++Y)
-        {
-            uint8_t Blue = (Y + Offset / 8) & 0xFF;
-            for (int X = 0; X < Frame.Width; ++X)
-            {
-                uint8_t Green = (X + Offset / 8) & 0xFF;
-                Frame.Pixels[Y * Frame.Width + X] = (Red << 16) | (Green << 8) | Blue;
-            }
-        }
+        UpdateAndDraw(&GlobalState);
 
         InvalidateRect(WindowHandle, 0, FALSE);
         UpdateWindow(WindowHandle);
-
-        ++Offset;
     }
 
     return 0;
