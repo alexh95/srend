@@ -1,6 +1,9 @@
 # Software renderer
 
-### TODO:
+### TODO Platform:
 * Linux Layer
 * Platform abstraction layer
-* Separate compilation units for platform and renderer code
+
+### TODO Renderer:
+* Triangle Rasterization
+* Coordinate systems

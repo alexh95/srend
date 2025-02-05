@@ -14,6 +14,16 @@ typedef signed long long   s64;
 typedef float              f32;
 typedef double             f64;
 
+#define MAX(A, B) ((A > B) ? (A) : (B))
+#define MIN(A, B) ((A > B) ? (B) : (A))
+#define ABS(V) ((V > 0) ? (V) : -(V))
+#define SWAP(Type, A, B) \
+{\
+Type Temp = A;\
+A = B;\
+B = Temp;\
+}
+
 typedef struct
 {
     u32 Width;
