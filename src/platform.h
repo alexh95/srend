@@ -1,6 +1,8 @@
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
+typedef size_t             umm;
+
 typedef char               c8;
 typedef unsigned char      u8;
 typedef unsigned short     u16;
@@ -15,6 +17,12 @@ typedef float              f32;
 typedef double             f64;
 
 typedef s32                b32;
+
+#define FALSE 0
+#define TRUE 1
+
+#define Assert(Condition) { if(!(Condition)) { *(s32 *)0 = 0; } }
+#define InvalidCodePath Assert(0)
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof(Array[0]))
 #define MAX(A, B) ((A > B) ? (A) : (B))
@@ -32,18 +40,77 @@ typedef s32                b32;
 
 typedef struct
 {
+    union
+    {
+        void *Data;
+        union
+        {
+            char *Char;
+            u8 *U8;
+            s8 *S8;
+        } Bytes;
+        union
+        {
+            u16 *U16;
+            s16 *S16;
+        } Words;
+        union
+        {
+            u32 *U32;
+            s32 *S32;
+        } Dwords;
+        union
+        {
+            u64 *U64;
+            s64 *S64;
+        } Qwords;
+    };
+    umm Size;
+} buffer;
+
+typedef struct struct_memory_arena
+{
+    u8 *Data;
+    umm Used;
+    umm MaxSize;
+} memory_arena;
+
+#define KiloBytes(Size) (1024LL * (Size))
+#define MegaBytes(Size) (1024LL * KiloBytes(Size))
+#define GigaBytes(Size) (1024LL * MegaBytes(Size))
+#define TerraBytes(Size) (1024LL * GigaBytes(Size))
+
+u8 *ArenaPushInternal(memory_arena *Arena, umm Size)
+{
+    if ((Arena->MaxSize - Arena->Used) < Size)
+    {
+        InvalidCodePath;
+    }
+
+    u8 *Result = Arena->Data + Arena->Used;
+    Arena->Used += Size;
+    return Result;
+}
+
+#define ArenaPush(Arena, Type) ((Type *)ArenaPushInternal(Arena, sizeof(Type)))
+#define ArenaPushArray(Arena, Type, Count) ((Type *)ArenaPushInternal(Arena, Count * sizeof(Type)))
+
+inline static buffer ArenaPushBuffer(memory_arena *Arena, umm Size)
+{
+    buffer Result = {};
+    Result.Data = ArenaPushArray(Arena, u8, Size);
+    Result.Size = Size;
+    return Result;
+}
+
+typedef struct
+{
     u32 Width;
     u32 Height;
     u32 *Pixels;
 } frame;
 
-typedef struct
-{
-    c8 *Data;
-    u64 Size;
-} file_buffer;
-
-#define OPEN_AND_READ_FILE(Name) file_buffer (Name)(c8 *FileName)
+#define OPEN_AND_READ_FILE(Name) buffer (Name)(c8 *FileName)
 typedef OPEN_AND_READ_FILE(open_and_read_file);
 
 typedef struct
@@ -54,6 +121,7 @@ typedef struct
 typedef struct
 {
     platform Platform;
+    memory_arena Arena;
     frame Frame;
 } state;
 

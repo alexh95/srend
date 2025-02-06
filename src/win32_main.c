@@ -70,7 +70,7 @@ static LRESULT CALLBACK WindowProc(
 
 OPEN_AND_READ_FILE(Win32OpenAndReadFile)
 {
-    file_buffer Result = {0};
+    buffer Result = {0};
 
     HANDLE FileHandle = CreateFileA(
         FileName,
@@ -154,6 +154,9 @@ int WinMain(
     );
 
     ShowWindow(WindowHandle, CommandShow);
+
+    GlobalState.Arena.MaxSize = MegaBytes(16);
+    GlobalState.Arena.Data = VirtualAlloc(0, GlobalState.Arena.MaxSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
     GlobalState.Platform.OpenAndReadFile = Win32OpenAndReadFile;
 

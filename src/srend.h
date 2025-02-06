@@ -3,6 +3,7 @@
 
 #include "platform.h"
 
-extern UPDATE_AND_DRAW(UpdateAndDraw);
+extern RENDERER_INITIALIZE(RendererInitialize);
+extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw);
 
 #endif

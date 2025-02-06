@@ -1,5 +1,11 @@
 #include "srend.h"
+#include "string.c"
 #include "vector.c"
+
+typedef struct
+{
+    v2s32 P[3];
+} triangle;
 
 static u32 Offset = 0;
 
@@ -10,7 +16,6 @@ v4f64 White = {1.0, 1.0, 1.0, 1.0};
 
 static void DrawScrollingGradient(frame *Frame)
 {
-
     u8 Red = 0;
 
     for (u32 Y = 0; Y < Frame->Height; ++Y)
@@ -27,12 +32,16 @@ static void DrawScrollingGradient(frame *Frame)
 
 static void DrawPixel(frame *Frame, s32 X, s32 Y, s32 C)
 {
-    s32 FrameIndex = Y * Frame->Width + X;
-    Frame->Pixels[FrameIndex] = C;
+    if (X >= 0 && X < Frame->Width && Y >= 0 && Y < Frame->Height)
+    {
+        s32 FrameIndex = Y * Frame->Width + X;
+        Frame->Pixels[FrameIndex] = C;
+    }
 }
 
 static void DrawPoint(frame *Frame, v2s32 P, v4f64 Color)
 {
+
     s32 C = ToPixelColor(Color);
     DrawPixel(Frame, P.X, P.Y, C);
 }
@@ -163,7 +172,7 @@ static void Rasterize(frame *Frame, v2s32 P0, v2s32 P1, v2s32 P2, v4f64 C)
     }
 }
 
-static void DrawMesh(frame *Frame, v2s32 *Points, s32 PointCount, s32 (*Triangles)[3], s32 TriangleCount)
+static void DrawMesh_(frame *Frame, v2s32 *Points, s32 PointCount, s32 (*Triangles)[3], s32 TriangleCount)
 {
     for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
     {
@@ -184,9 +193,115 @@ static void DrawMesh(frame *Frame, v2s32 *Points, s32 PointCount, s32 (*Triangle
     }
 }
 
+static void DrawMesh(frame *Frame, v2s32 *Points, s32 PointCount, s32 *Triangles, s32 TriangleCount)
+{
+    for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
+    {
+        s32 *Triangle = Triangles + 3 * TriangleIndex;
+        Rasterize(Frame, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], White);
+    }
+
+    for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
+    {
+        s32 *Triangle = Triangles + 3 * TriangleIndex;
+        DrawTriangle(Frame, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], Red);
+    }
+
+    for (s32 PointIndex = 0; PointIndex < PointCount; ++PointIndex)
+    {
+        v2s32 Point = Points[PointIndex];
+        DrawPoint(Frame, Point, Green);
+    }
+}
+
+v2s32 *SV = 0;
+u32 SVC = 0;
+s32 *Tr = 0;
+s32 TrC = 0;
+
 extern RENDERER_INITIALIZE(RendererInitialize)
 {
-    file_buffer ObjFile = State->Platform.OpenAndReadFile("..\\res\\plane.obj");
+    memory_arena *Arena = &State->Arena;
+
+    buffer ObjFile = State->Platform.OpenAndReadFile("..\\res\\plane_2.obj");
+
+    string_list Lines = StringSplitLines(Arena, ObjFile);
+
+    u32 FirstVertexIndex = 0;
+    u32 VertexCount = 0;
+    u32 FirstFaceIndex = 0;
+    u32 FaceCount = 0;
+    for (u32 LineIndex = 0; LineIndex < Lines.Count; ++LineIndex)
+    {
+        string Line = Lines.Strings[LineIndex];
+        c8 FirstCharacter = Line.Bytes.Char[0];
+        if (FirstCharacter == 'v')
+        {
+            ++VertexCount;
+            if (FirstVertexIndex == 0)
+            {
+                FirstVertexIndex = LineIndex;
+            }
+        }
+        else if (FirstCharacter == 'f')
+        {
+            ++FaceCount;
+            if (FirstFaceIndex == 0)
+            {
+                FirstFaceIndex = LineIndex;
+            }
+        }
+    }
+
+    v4f64 *Vertices = ArenaPushArray(Arena, v4f64, VertexCount);
+    v2s32 *ScreenVertices = ArenaPushArray(Arena, v2s32, VertexCount);
+    for (u32 VertexIndex = 0; VertexIndex < VertexCount; ++VertexIndex)
+    {
+        u32 LineIndex = VertexIndex + FirstVertexIndex;
+        string Line = Lines.Strings[LineIndex];
+        string_list NumberParts = StringSplitFrom(Arena, Line, 2, ' ');
+        f64 X = StringParseF64(NumberParts.Strings[0]);
+        f64 Y = StringParseF64(NumberParts.Strings[1]);
+        f64 Z = StringParseF64(NumberParts.Strings[2]);
+        v4f64 Vertex = V4f64(X, Y, Z, 1.0);
+        Vertices[VertexIndex] = Vertex;
+
+        s32 SX = (s32)(Vertex.X * 150.0 + 250.0);
+        s32 SY = (s32)(Vertex.Z * 150.0 + 250.0);
+        ScreenVertices[VertexIndex] = V2s32(SX, SY);
+    }
+
+    s32 *Faces = ArenaPushArray(Arena, s32, 4 * FaceCount);
+    s32 *Trigs = ArenaPushArray(Arena, s32, 2 * 3 * FaceCount);
+    for (u32 FaceIndex = 0; FaceIndex < FaceCount; ++FaceIndex)
+    {
+        u32 LineIndex = FaceIndex + FirstFaceIndex;
+        string Line = Lines.Strings[LineIndex];
+        string_list NumberParts = StringSplitFrom(Arena, Line, 2, ' ');
+
+        s32 VertexIndex0 = StringParseS32(NumberParts.Strings[0]) - 1;
+        s32 VertexIndex1 = StringParseS32(NumberParts.Strings[1]) - 1;
+        s32 VertexIndex2 = StringParseS32(NumberParts.Strings[2]) - 1;
+        s32 VertexIndex3 = StringParseS32(NumberParts.Strings[3]) - 1;
+
+        Faces[4 * FaceIndex + 0] = VertexIndex0;
+        Faces[4 * FaceIndex + 1] = VertexIndex1;
+        Faces[4 * FaceIndex + 2] = VertexIndex2;
+        Faces[4 * FaceIndex + 3] = VertexIndex3;
+
+        Trigs[6 * FaceIndex + 0] = VertexIndex2;
+        Trigs[6 * FaceIndex + 1] = VertexIndex1;
+        Trigs[6 * FaceIndex + 2] = VertexIndex0;
+        Trigs[6 * FaceIndex + 3] = VertexIndex3;
+        Trigs[6 * FaceIndex + 4] = VertexIndex2;
+        Trigs[6 * FaceIndex + 5] = VertexIndex0;
+    }
+
+    SV = ScreenVertices;
+    SVC = VertexCount;
+    Tr = Trigs;
+    TrC = 2 * FaceCount;
+
     int a = 0;
 }
 
@@ -249,9 +364,11 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
         {6, 13, 12}, {6, 7, 13}, {7, 14, 13}, {7, 8, 14}, {8, 15, 14}, {8, 9, 15}, {9, 16, 15}, {9, 10, 16}, {10, 17, 16}, {10, 11, 17},
     };
 
-    DrawMesh(Frame, Points, ArrayCount(Points), Triangles, ArrayCount(Triangles));
+    DrawMesh_(Frame, Points, ArrayCount(Points), Triangles, ArrayCount(Triangles));
 
     DrawRect(Frame, V2s32(0, 0), V2s32(Frame->Width - 1, Frame->Height - 1), Color);
+
+    DrawMesh(Frame, SV, SVC, Tr, TrC);
 }
 
 static inline s32 ToPixelColor(v4f64 Color)
