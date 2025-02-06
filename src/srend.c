@@ -1,11 +1,6 @@
-#include "srend.h"
 #include "string.c"
 #include "vector.c"
-
-typedef struct
-{
-    v2s32 P[3];
-} triangle;
+#include "srend.h"
 
 static u32 Offset = 0;
 
@@ -193,37 +188,55 @@ static void DrawMesh_(frame *Frame, v2s32 *Points, s32 PointCount, s32 (*Triangl
     }
 }
 
-static void DrawMesh(frame *Frame, v2s32 *Points, s32 PointCount, s32 *Triangles, s32 TriangleCount)
+static v2s32 ToScreenSpace(v4f64 P)
+{
+    v2s32 Result = V2s32(
+        P.X * 150.0 + 200.0,
+        P.Z * 150.0 + 200.0
+    );
+    return Result;
+}
+
+static void DrawMesh(frame *Frame, v4f64 *Points, s32 PointCount, s32 *Triangles, s32 TriangleCount)
 {
     for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
     {
         s32 *Triangle = Triangles + 3 * TriangleIndex;
-        Rasterize(Frame, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], White);
+        Rasterize(
+            Frame, 
+            ToScreenSpace(Points[Triangle[0]]), 
+            ToScreenSpace(Points[Triangle[1]]), 
+            ToScreenSpace(Points[Triangle[2]]), 
+            White
+        );
     }
 
     for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
     {
         s32 *Triangle = Triangles + 3 * TriangleIndex;
-        DrawTriangle(Frame, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], Red);
+        DrawTriangle(
+            Frame, 
+            ToScreenSpace(Points[Triangle[0]]), 
+            ToScreenSpace(Points[Triangle[1]]), 
+            ToScreenSpace(Points[Triangle[2]]), 
+            Red
+        );
     }
 
     for (s32 PointIndex = 0; PointIndex < PointCount; ++PointIndex)
     {
-        v2s32 Point = Points[PointIndex];
+        v2s32 Point = ToScreenSpace(Points[PointIndex]);
         DrawPoint(Frame, Point, Green);
     }
 }
 
-v2s32 *SV = 0;
-u32 SVC = 0;
-s32 *Tr = 0;
-s32 TrC = 0;
+object Mesh1 = {0};
+object Mesh2 = {0};
 
-extern RENDERER_INITIALIZE(RendererInitialize)
+static object ParseObject(state *State, c8 *FilePath)
 {
     memory_arena *Arena = &State->Arena;
-
-    buffer ObjFile = State->Platform.OpenAndReadFile("..\\res\\plane_2.obj");
+    buffer ObjFile = State->Platform.OpenAndReadFile(FilePath);
 
     string_list Lines = StringSplitLines(Arena, ObjFile);
 
@@ -254,7 +267,6 @@ extern RENDERER_INITIALIZE(RendererInitialize)
     }
 
     v4f64 *Vertices = ArenaPushArray(Arena, v4f64, VertexCount);
-    v2s32 *ScreenVertices = ArenaPushArray(Arena, v2s32, VertexCount);
     for (u32 VertexIndex = 0; VertexIndex < VertexCount; ++VertexIndex)
     {
         u32 LineIndex = VertexIndex + FirstVertexIndex;
@@ -265,13 +277,8 @@ extern RENDERER_INITIALIZE(RendererInitialize)
         f64 Z = StringParseF64(NumberParts.Strings[2]);
         v4f64 Vertex = V4f64(X, Y, Z, 1.0);
         Vertices[VertexIndex] = Vertex;
-
-        s32 SX = (s32)(Vertex.X * 150.0 + 250.0);
-        s32 SY = (s32)(Vertex.Z * 150.0 + 250.0);
-        ScreenVertices[VertexIndex] = V2s32(SX, SY);
     }
 
-    s32 *Faces = ArenaPushArray(Arena, s32, 4 * FaceCount);
     s32 *Trigs = ArenaPushArray(Arena, s32, 2 * 3 * FaceCount);
     for (u32 FaceIndex = 0; FaceIndex < FaceCount; ++FaceIndex)
     {
@@ -284,11 +291,6 @@ extern RENDERER_INITIALIZE(RendererInitialize)
         s32 VertexIndex2 = StringParseS32(NumberParts.Strings[2]) - 1;
         s32 VertexIndex3 = StringParseS32(NumberParts.Strings[3]) - 1;
 
-        Faces[4 * FaceIndex + 0] = VertexIndex0;
-        Faces[4 * FaceIndex + 1] = VertexIndex1;
-        Faces[4 * FaceIndex + 2] = VertexIndex2;
-        Faces[4 * FaceIndex + 3] = VertexIndex3;
-
         Trigs[6 * FaceIndex + 0] = VertexIndex2;
         Trigs[6 * FaceIndex + 1] = VertexIndex1;
         Trigs[6 * FaceIndex + 2] = VertexIndex0;
@@ -297,11 +299,19 @@ extern RENDERER_INITIALIZE(RendererInitialize)
         Trigs[6 * FaceIndex + 5] = VertexIndex0;
     }
 
-    SV = ScreenVertices;
-    SVC = VertexCount;
-    Tr = Trigs;
-    TrC = 2 * FaceCount;
+    object Result = {0};
+    Result.Vertices = Vertices;
+    Result.VertexCount = VertexCount;
+    Result.Triangles = Trigs;
+    Result.TriangleCount = 2 * FaceCount;
+    return Result;
+}
 
+extern RENDERER_INITIALIZE(RendererInitialize)
+{
+    memory_arena *Arena = &State->Arena;
+    Mesh1 = ParseObject(State, "..\\res\\plane.obj");
+    Mesh2 = ParseObject(State, "..\\res\\plane_2.obj");
     int a = 0;
 }
 
@@ -368,7 +378,7 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
 
     DrawRect(Frame, V2s32(0, 0), V2s32(Frame->Width - 1, Frame->Height - 1), Color);
 
-    DrawMesh(Frame, SV, SVC, Tr, TrC);
+    DrawMesh(Frame, Mesh1.Vertices, Mesh1.VertexCount, Mesh1.Triangles, Mesh1.TriangleCount);
 }
 
 static inline s32 ToPixelColor(v4f64 Color)
