@@ -39,10 +39,28 @@ typedef struct
 
 typedef struct
 {
+    c8 *Data;
+    u64 Size;
+} file_buffer;
+
+#define OPEN_AND_READ_FILE(Name) file_buffer (Name)(c8 *FileName)
+typedef OPEN_AND_READ_FILE(open_and_read_file);
+
+typedef struct
+{
+    open_and_read_file *OpenAndReadFile;
+} platform;
+
+typedef struct
+{
+    platform Platform;
     frame Frame;
 } state;
 
-#define UPDATE_AND_DRAW(Name) void (Name)(state *State)
-typedef UPDATE_AND_DRAW(update_and_draw);
+#define RENDERER_INITIALIZE(Name) void (Name)(state *State)
+typedef RENDERER_INITIALIZE(renderer_initialize);
+
+#define RENDERER_UPDATE_AND_DRAW(Name) void (Name)(state *State)
+typedef RENDERER_UPDATE_AND_DRAW(renderer_update_and_draw);
 
 #endif

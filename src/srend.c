@@ -184,7 +184,13 @@ static void DrawMesh(frame *Frame, v2s32 *Points, s32 PointCount, s32 (*Triangle
     }
 }
 
-extern UPDATE_AND_DRAW(UpdateAndDraw)
+extern RENDERER_INITIALIZE(RendererInitialize)
+{
+    file_buffer ObjFile = State->Platform.OpenAndReadFile("..\\res\\plane.obj");
+    int a = 0;
+}
+
+extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
 {
     v4f64 Color = V4f64(1.0, (Offset & 0x0FFF) / (f64)0x0FFF, 0.0, 1.0);
     ++Offset;

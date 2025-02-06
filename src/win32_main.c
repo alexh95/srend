@@ -2,7 +2,6 @@
 #include <stdint.h>
 
 #include "platform.h"
-
 #include "srend.h"
 
 #define INITIAL_WIDTH 480
@@ -69,6 +68,38 @@ static LRESULT CALLBACK WindowProc(
     return 0;
 }
 
+OPEN_AND_READ_FILE(Win32OpenAndReadFile)
+{
+    file_buffer Result = {0};
+
+    HANDLE FileHandle = CreateFileA(
+        FileName,
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        0,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        0
+    );
+
+    DWORD LastError = GetLastError();
+    if (LastError == ERROR_FILE_NOT_FOUND)
+    {
+        return Result;
+    }
+
+    LARGE_INTEGER FileSize = {0};
+    GetFileSizeEx(FileHandle, &FileSize);
+
+    c8 *FileData = VirtualAlloc(0, FileSize.QuadPart, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    ReadFile(FileHandle, FileData, FileSize.LowPart, 0, 0);
+
+    Result.Data = FileData;
+    Result.Size = FileSize.QuadPart;
+
+    return Result;
+}
+
 int WinMain(
     HINSTANCE Instance,
     HINSTANCE PreviousInstance,
@@ -77,7 +108,8 @@ int WinMain(
 )
 {
     HMODULE RendererDll = LoadLibraryA("srend.dll");
-    update_and_draw *UpdateAndDraw = (update_and_draw *)GetProcAddress(RendererDll, "UpdateAndDraw");
+    renderer_initialize *RendererInitialize = (renderer_initialize *)GetProcAddress(RendererDll, "RendererInitialize");
+    renderer_update_and_draw *RendererUpdateAndDraw = (renderer_update_and_draw *)GetProcAddress(RendererDll, "RendererUpdateAndDraw");
 
     SetProcessDPIAware();
 
@@ -123,6 +155,9 @@ int WinMain(
 
     ShowWindow(WindowHandle, CommandShow);
 
+    GlobalState.Platform.OpenAndReadFile = Win32OpenAndReadFile;
+
+    RendererInitialize(&GlobalState);
     while (Running)
     {
         MSG Message = {0};
@@ -132,7 +167,7 @@ int WinMain(
             DispatchMessageA(&Message);
         }
 
-        UpdateAndDraw(&GlobalState);
+        RendererUpdateAndDraw(&GlobalState);
 
         InvalidateRect(WindowHandle, 0, FALSE);
         UpdateWindow(WindowHandle);
