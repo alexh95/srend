@@ -15,7 +15,7 @@ PUSHD .\build
 DEL *.pdb > NUL 2> NUL
 
 if "%MSVC%"=="1" (
-    cl %CompilerOptionsMsvc% ..\src\srend.c /D SREND_EXPORTS /Fm"srend.map" /LD /link %LinkerOptionsMsvc% /OUT:srend.dll /EXPORT:UpdateAndDraw
+    cl %CompilerOptionsMsvc% ..\src\srend.c /D SREND_EXPORTS /Fm"srend.map" /link %LinkerOptionsMsvc% /DLL /OUT:srend.dll /EXPORT:UpdateAndDraw
     cl %CompilerOptionsMsvc% ..\src\win32_main.c /Fe"sr.exe" /Fm"sr.map" /link %LinkerOptionsMsvc% user32.lib gdi32.lib
 )
 

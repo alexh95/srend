@@ -2,8 +2,8 @@
 
 ### TODO Platform:
 * Linux Layer
-* Platform abstraction layer
+* Platform abstraction layer (Input, File IO)
 
 ### TODO Renderer:
-* Triangle Rasterization
 * Coordinate systems
+* Models / OBJ file

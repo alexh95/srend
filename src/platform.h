@@ -14,15 +14,21 @@ typedef signed long long   s64;
 typedef float              f32;
 typedef double             f64;
 
+typedef s32                b32;
+
+#define ArrayCount(Array) (sizeof(Array) / sizeof(Array[0]))
 #define MAX(A, B) ((A > B) ? (A) : (B))
 #define MIN(A, B) ((A > B) ? (B) : (A))
+#define MAX3(A, B, C) (MAX(MAX(A, B), C))
+#define MIN3(A, B, C) (MIN(MIN(A, B), C))
+
 #define ABS(V) ((V > 0) ? (V) : -(V))
-#define SWAP(Type, A, B) \
+#define SWAP(A, B)\
 {\
-Type Temp = A;\
-A = B;\
-B = Temp;\
-}
+    typeof(A) Temp = A;\
+    A = B;\
+    B = Temp;\
+};
 
 typedef struct
 {

@@ -5,6 +5,9 @@
 
 #include "srend.h"
 
+#define INITIAL_WIDTH 480
+#define INITIAL_HEIGHT 360
+
 static state GlobalState = {0};
 
 static BOOL Running = TRUE;
@@ -12,7 +15,7 @@ static BITMAPINFO FrameBitmapInfo = {0};
 static HBITMAP FrameBitmap = 0;
 static HDC FrameDeviceContext = 0;
 
-LRESULT WindowProc(
+static LRESULT CALLBACK WindowProc(
     HWND WindowHandle,
     UINT Message,
     WPARAM WParam,
@@ -76,6 +79,8 @@ int WinMain(
     HMODULE RendererDll = LoadLibraryA("srend.dll");
     update_and_draw *UpdateAndDraw = (update_and_draw *)GetProcAddress(RendererDll, "UpdateAndDraw");
 
+    SetProcessDPIAware();
+
     WNDCLASSEXA WindowClass = {0};
     WindowClass.cbSize = sizeof(WNDCLASSEX);
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -91,15 +96,25 @@ int WinMain(
     FrameBitmapInfo.bmiHeader.biCompression = BI_RGB;
     FrameDeviceContext = CreateCompatibleDC(0);
 
+    FrameBitmap = CreateDIBSection(0, &FrameBitmapInfo, DIB_RGB_COLORS, (void **)&GlobalState.Frame.Pixels, 0, 0);
+
+    RECT WindowRect = { 0, 0, INITIAL_WIDTH, INITIAL_HEIGHT };
+    AdjustWindowRectEx(
+        &WindowRect,
+        WS_OVERLAPPEDWINDOW,
+        FALSE,
+        WS_EX_OVERLAPPEDWINDOW
+    );
+
     HWND WindowHandle = CreateWindowExA(
         WS_EX_OVERLAPPEDWINDOW,
         "RendererWindowClass",
         "Software Renderer",
         WS_OVERLAPPEDWINDOW,
-        100,
-        100,
-        480,
-        360,
+        1000,
+        500,
+        WindowRect.right - WindowRect.left,
+        WindowRect.bottom - WindowRect.top,
         0,
         0,
         Instance,
@@ -109,7 +124,7 @@ int WinMain(
     ShowWindow(WindowHandle, CommandShow);
 
     while (Running)
-    {        
+    {
         MSG Message = {0};
         while (PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
         {
