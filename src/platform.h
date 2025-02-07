@@ -113,7 +113,7 @@ u8 *ArenaPushInternal(memory_arena *Arena, umm Size)
 #define ArenaPush(Arena, Type) ((Type *)ArenaPushInternal(Arena, sizeof(Type)))
 #define ArenaPushArray(Arena, Type, Count) ((Type *)ArenaPushInternal(Arena, Count * sizeof(Type)))
 
-inline static buffer ArenaPushBuffer(memory_arena *Arena, umm Size)
+static inline buffer ArenaPushBuffer(memory_arena *Arena, umm Size)
 {
     buffer Result = {};
     Result.Data = ArenaPushArray(Arena, u8, Size);
@@ -133,6 +133,16 @@ typedef OPEN_AND_READ_FILE(open_and_read_file);
 
 typedef struct
 {
+    f64 deltaT;
+
+    b32 Left;
+    b32 Right;
+    b32 Up;
+    b32 Down;
+} input;
+
+typedef struct
+{
     open_and_read_file *OpenAndReadFile;
 } platform;
 
@@ -140,6 +150,7 @@ typedef struct
 {
     platform Platform;
     memory_arena Arena;
+    input Input;
     frame Frame;
 } state;
 

@@ -364,6 +364,7 @@ static object ParseObject(state *State, c8 *FilePath)
 object Mesh1 = {0};
 object Mesh2 = {0};
 object Teapot = {0};
+v2s32 GlobalOffset = {0};
 
 extern RENDERER_INITIALIZE(RendererInitialize)
 {
@@ -437,7 +438,27 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
 
     DrawRect(Frame, V2s32(0, 0), V2s32(Frame->Width - 1, Frame->Height - 1), Color);
 
-    DrawMesh(Frame, Mesh1, V2s32(600, 200));
+    input *Input = &State->Input;
+    v2s32 Delta = V2s32(0, 0);
+    if (Input->Left)
+    {
+        Delta.X -= 10;
+    }
+    if (Input->Right)
+    {
+        Delta.X += 10;
+    }
+    if (Input->Up)
+    {
+        Delta.Y += 10;
+    }
+    if (Input->Down)
+    {
+        Delta.Y -= 10;
+    }
+    GlobalOffset = V2s32Add(GlobalOffset, Delta);
+
+    DrawMesh(Frame, Mesh1, V2s32Add(GlobalOffset, V2s32(600, 200)));
     DrawMesh(Frame, Mesh2, V2s32(1400, 200));
     DrawObject(Frame, Teapot);
 }

@@ -59,6 +59,53 @@ static LRESULT CALLBACK WindowProc(
             GlobalState.Frame.Width = FrameBitmapInfo.bmiHeader.biWidth;
             GlobalState.Frame.Height = FrameBitmapInfo.bmiHeader.biHeight;
         } break;
+
+        case WM_SYSKEYDOWN:
+        case WM_SYSKEYUP:
+        case WM_KEYDOWN:
+        case WM_KEYUP:
+        {
+            // BOOL AltKeyWasDown = LPARAM & (1 << 29);
+            // BOOL ShiftKeyWasDown = GetKeyState(VK_SHIFT) & (1 << 15);
+            
+            BOOL WasDown = (LParam & (1 << 30)) != 0;
+            BOOL IsDown = (LParam & (1 << 31)) == 0;
+            if(WasDown != IsDown)
+            {
+                if (WParam == 'A')
+                {
+                    GlobalState.Input.Left = IsDown;
+                }
+                else if (WParam == 'D')
+                {
+                    GlobalState.Input.Right = IsDown;
+                }
+                else if (WParam == 'W')
+                {
+                    GlobalState.Input.Up = IsDown;
+                }
+                else if (WParam == 'S')
+                {
+                    GlobalState.Input.Down = IsDown;
+                }
+                if (WParam == VK_LEFT)
+                {
+                    GlobalState.Input.Left = IsDown;
+                }
+                else if (WParam == VK_RIGHT)
+                {
+                    GlobalState.Input.Right = IsDown;
+                }
+                else if (WParam == VK_UP)
+                {
+                    GlobalState.Input.Up = IsDown;
+                }
+                else if (WParam == VK_DOWN)
+                {
+                    GlobalState.Input.Down = IsDown;
+                }
+            }
+        } break;
         default:
         {
             return DefWindowProcA(WindowHandle, Message, WParam, LParam);
