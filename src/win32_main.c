@@ -1,5 +1,4 @@
 #include <windows.h>
-#include <stdint.h>
 
 #include "platform.h"
 #include "srend.h"

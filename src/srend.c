@@ -1,5 +1,6 @@
 #include "string.c"
 #include "vector.c"
+#include "matrix.c"
 #include "srend.h"
 
 static u32 Offset = 0;
@@ -272,6 +273,76 @@ static void DrawObject(frame *Frame, object Object)
     }
 }
 
+static m4f64 ProjectionPerspective(f64 X0, f64 X1, f64 Y0, f64 Y1, f64 Z0, f64 Z1)
+{
+    f64 XS = X1 + X0;
+    f64 YS = Y1 + Y0;
+    f64 ZS = Z1 + Z0;
+    f64 XD = X1 - X0;
+    f64 YD = Y1 - Y0;
+    f64 ZD = Z1 - Z0;
+
+    m4f64 Result = M4f64(
+        2.0 / XD, 0.0, 0.0, XS / XD,
+        0.0, 2.0 / YD, 0.0, YS / YD,
+        0.0, 0.0, 2.0 / ZD, ZS / ZD,
+        0.0, 0.0, 0.0, 1.0
+    );
+    return Result;
+}
+
+static v2s32 NormalToScreenSpace(v4f64 N)
+{
+    v2s32 Result = V2s32(
+        0.5 * (1.0 + N.X) * 480,
+        0.5 * (1.0 + N.Y) * 360
+    );
+    return Result;
+}
+
+static void DrawObject3D(frame *Frame, object Object)
+{
+    // for (s32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+    // {
+    //     s32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+    //     Rasterize(
+    //         Frame, 
+    //         ToScreenSpaceObj(Object.Vertices[Triangle[0]]), 
+    //         ToScreenSpaceObj(Object.Vertices[Triangle[1]]), 
+    //         ToScreenSpaceObj(Object.Vertices[Triangle[2]]), 
+    //         Object.Color
+    //     );
+    // }
+
+    m4f64 M = M4f64I();
+    m4f64 P = ProjectionPerspective(-5, 5, -5, 5, -5, 5);
+
+    for (s32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+    {
+        s32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+
+        v2s32 P0 = NormalToScreenSpace(M4f64MulV(P, Object.Vertices[Triangle[0]]));
+        v2s32 P1 = NormalToScreenSpace(M4f64MulV(P, Object.Vertices[Triangle[1]]));
+        v2s32 P2 = NormalToScreenSpace(M4f64MulV(P, Object.Vertices[Triangle[2]]));
+
+        int b = 0;
+
+        DrawTriangle(
+            Frame, 
+            P0, 
+            P1, 
+            P2, 
+            Red
+        );
+    }
+
+    // for (s32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
+    // {
+    //     v2s32 Point = ToScreenSpaceObj(Object.Vertices[PointIndex]);
+    //     DrawPoint(Frame, Point, Green);
+    // }
+}
+
 // NOTE(alex): this parses very rudimentary OBJ files
 static object ParseObject(state *State, c8 *FilePath)
 {
@@ -372,6 +443,7 @@ extern RENDERER_INITIALIZE(RendererInitialize)
     Mesh1 = ParseObject(State, "..\\res\\plane.obj");
     Mesh2 = ParseObject(State, "..\\res\\plane_2.obj");
     Teapot = ParseObject(State, "..\\res\\teapot.obj");
+
     int a = 0;
 }
 
@@ -460,7 +532,8 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
 
     DrawMesh(Frame, Mesh1, V2s32Add(GlobalOffset, V2s32(600, 200)));
     DrawMesh(Frame, Mesh2, V2s32(1400, 200));
-    DrawObject(Frame, Teapot);
+    // DrawObject(Frame, Teapot);
+    DrawObject3D(Frame, Teapot);
 }
 
 static inline s32 ToPixelColor(v4f64 Color)

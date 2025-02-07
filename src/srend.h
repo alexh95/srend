@@ -4,6 +4,7 @@
 #include "platform.h"
 #include "string.h"
 #include "vector.h"
+#include "matrix.h"
 
 extern RENDERER_INITIALIZE(RendererInitialize);
 extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw);
