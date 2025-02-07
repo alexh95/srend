@@ -1,6 +1,7 @@
 # Software renderer
 
 ### TODO Platform:
+* Input
 * Linux Layer
 * Platform abstraction layer (Input, File IO)
 

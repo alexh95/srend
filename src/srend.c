@@ -188,51 +188,91 @@ static void DrawMesh_(frame *Frame, v2s32 *Points, s32 PointCount, s32 (*Triangl
     }
 }
 
-static v2s32 ToScreenSpace(v4f64 P)
+static v2s32 ToScreenSpace(v4f64 P, v2s32 Offset)
 {
     v2s32 Result = V2s32(
-        P.X * 150.0 + 200.0,
-        P.Z * 150.0 + 200.0
+        P.X * 150.0 + Offset.X,
+        P.Z * 150.0 + Offset.Y
     );
     return Result;
 }
 
-static void DrawMesh(frame *Frame, v4f64 *Points, s32 PointCount, s32 *Triangles, s32 TriangleCount)
+static v2s32 ToScreenSpaceObj(v4f64 P)
 {
-    for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
+    v2s32 Result = V2s32(
+        P.X * 300.0 + 1000.0,
+        P.Y * 300.0 + 300.0
+    );
+    return Result;
+}
+
+static void DrawMesh(frame *Frame, object Mesh, v2s32 Offset)
+{
+    for (s32 TriangleIndex = 0; TriangleIndex < Mesh.TriangleCount; ++TriangleIndex)
     {
-        s32 *Triangle = Triangles + 3 * TriangleIndex;
+        s32 *Triangle = Mesh.Triangles + 3 * TriangleIndex;
         Rasterize(
             Frame, 
-            ToScreenSpace(Points[Triangle[0]]), 
-            ToScreenSpace(Points[Triangle[1]]), 
-            ToScreenSpace(Points[Triangle[2]]), 
-            White
+            ToScreenSpace(Mesh.Vertices[Triangle[0]], Offset), 
+            ToScreenSpace(Mesh.Vertices[Triangle[1]], Offset), 
+            ToScreenSpace(Mesh.Vertices[Triangle[2]], Offset), 
+            Mesh.Color
         );
     }
 
-    for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
+    for (s32 TriangleIndex = 0; TriangleIndex < Mesh.TriangleCount; ++TriangleIndex)
     {
-        s32 *Triangle = Triangles + 3 * TriangleIndex;
+        s32 *Triangle = Mesh.Triangles + 3 * TriangleIndex;
         DrawTriangle(
             Frame, 
-            ToScreenSpace(Points[Triangle[0]]), 
-            ToScreenSpace(Points[Triangle[1]]), 
-            ToScreenSpace(Points[Triangle[2]]), 
+            ToScreenSpace(Mesh.Vertices[Triangle[0]], Offset), 
+            ToScreenSpace(Mesh.Vertices[Triangle[1]], Offset), 
+            ToScreenSpace(Mesh.Vertices[Triangle[2]], Offset), 
             Red
         );
     }
 
-    for (s32 PointIndex = 0; PointIndex < PointCount; ++PointIndex)
+    for (s32 PointIndex = 0; PointIndex < Mesh.VertexCount; ++PointIndex)
     {
-        v2s32 Point = ToScreenSpace(Points[PointIndex]);
+        v2s32 Point = ToScreenSpace(Mesh.Vertices[PointIndex], Offset);
         DrawPoint(Frame, Point, Green);
     }
 }
 
-object Mesh1 = {0};
-object Mesh2 = {0};
+static void DrawObject(frame *Frame, object Object)
+{
+    for (s32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+    {
+        s32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+        Rasterize(
+            Frame, 
+            ToScreenSpaceObj(Object.Vertices[Triangle[0]]), 
+            ToScreenSpaceObj(Object.Vertices[Triangle[1]]), 
+            ToScreenSpaceObj(Object.Vertices[Triangle[2]]), 
+            Object.Color
+        );
+    }
 
+    for (s32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+    {
+        s32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+        DrawTriangle(
+            Frame, 
+            ToScreenSpaceObj(Object.Vertices[Triangle[0]]), 
+            ToScreenSpaceObj(Object.Vertices[Triangle[1]]), 
+            ToScreenSpaceObj(Object.Vertices[Triangle[2]]), 
+            Red
+        );
+    }
+
+    for (s32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
+    {
+        v2s32 Point = ToScreenSpaceObj(Object.Vertices[PointIndex]);
+        DrawPoint(Frame, Point, Green);
+    }
+}
+
+// NOTE(alex): this parses very rudimentary OBJ files
 static object ParseObject(state *State, c8 *FilePath)
 {
     memory_arena *Arena = &State->Arena;
@@ -244,24 +284,31 @@ static object ParseObject(state *State, c8 *FilePath)
     u32 VertexCount = 0;
     u32 FirstFaceIndex = 0;
     u32 FaceCount = 0;
+    u32 TriangleCount = 0;
     for (u32 LineIndex = 0; LineIndex < Lines.Count; ++LineIndex)
     {
         string Line = Lines.Strings[LineIndex];
-        c8 FirstCharacter = Line.Bytes.Char[0];
-        if (FirstCharacter == 'v')
+        if (Line.Size > 0)
         {
-            ++VertexCount;
-            if (FirstVertexIndex == 0)
+            c8 FirstCharacter = Line.Bytes.Char[0];
+            if (FirstCharacter == 'v')
             {
-                FirstVertexIndex = LineIndex;
+                if (VertexCount == 0)
+                {
+                    FirstVertexIndex = LineIndex;
+                }
+                ++VertexCount;
             }
-        }
-        else if (FirstCharacter == 'f')
-        {
-            ++FaceCount;
-            if (FirstFaceIndex == 0)
+            else if (FirstCharacter == 'f')
             {
-                FirstFaceIndex = LineIndex;
+                if (FaceCount == 0)
+                {
+                    FirstFaceIndex = LineIndex;
+                }
+                ++FaceCount;
+                umm VertexCount = StringCountOccurrenceFrom(Line, 2, ' ') + 1;
+                Assert(VertexCount >= 3);
+                TriangleCount += VertexCount - 2;
             }
         }
     }
@@ -271,47 +318,59 @@ static object ParseObject(state *State, c8 *FilePath)
     {
         u32 LineIndex = VertexIndex + FirstVertexIndex;
         string Line = Lines.Strings[LineIndex];
-        string_list NumberParts = StringSplitFrom(Arena, Line, 2, ' ');
-        f64 X = StringParseF64(NumberParts.Strings[0]);
-        f64 Y = StringParseF64(NumberParts.Strings[1]);
-        f64 Z = StringParseF64(NumberParts.Strings[2]);
-        v4f64 Vertex = V4f64(X, Y, Z, 1.0);
-        Vertices[VertexIndex] = Vertex;
+        if (Line.Size > 2)
+        {
+            string_list NumberParts = StringSplitFrom(Arena, Line, 2, ' ');
+            f64 X = StringParseF64(NumberParts.Strings[0]);
+            f64 Y = StringParseF64(NumberParts.Strings[1]);
+            f64 Z = StringParseF64(NumberParts.Strings[2]);
+            v4f64 Vertex = V4f64(X, Y, Z, 1.0);
+            Vertices[VertexIndex] = Vertex;
+        }
     }
 
-    s32 *Trigs = ArenaPushArray(Arena, s32, 2 * 3 * FaceCount);
+    s32 *Triangles = ArenaPushArray(Arena, s32, 3 * TriangleCount);
+    u32 TriangleVertexIndex = 0;
     for (u32 FaceIndex = 0; FaceIndex < FaceCount; ++FaceIndex)
     {
         u32 LineIndex = FaceIndex + FirstFaceIndex;
         string Line = Lines.Strings[LineIndex];
         string_list NumberParts = StringSplitFrom(Arena, Line, 2, ' ');
 
+        // NOTE(alex): Naive triangulation assuming the face vertices are clockwise
         s32 VertexIndex0 = StringParseS32(NumberParts.Strings[0]) - 1;
         s32 VertexIndex1 = StringParseS32(NumberParts.Strings[1]) - 1;
-        s32 VertexIndex2 = StringParseS32(NumberParts.Strings[2]) - 1;
-        s32 VertexIndex3 = StringParseS32(NumberParts.Strings[3]) - 1;
+        for (u32 FaceVertexIndex = 2; FaceVertexIndex < NumberParts.Count; ++FaceVertexIndex)
+        {
+            s32 VertexIndex2 = StringParseS32(NumberParts.Strings[FaceVertexIndex]) - 1;
 
-        Trigs[6 * FaceIndex + 0] = VertexIndex2;
-        Trigs[6 * FaceIndex + 1] = VertexIndex1;
-        Trigs[6 * FaceIndex + 2] = VertexIndex0;
-        Trigs[6 * FaceIndex + 3] = VertexIndex3;
-        Trigs[6 * FaceIndex + 4] = VertexIndex2;
-        Trigs[6 * FaceIndex + 5] = VertexIndex0;
+            Triangles[TriangleVertexIndex++] = VertexIndex2;
+            Triangles[TriangleVertexIndex++] = VertexIndex1;
+            Triangles[TriangleVertexIndex++] = VertexIndex0;
+
+            VertexIndex1 = VertexIndex2;
+        }
     }
 
     object Result = {0};
     Result.Vertices = Vertices;
     Result.VertexCount = VertexCount;
-    Result.Triangles = Trigs;
-    Result.TriangleCount = 2 * FaceCount;
+    Result.Triangles = Triangles;
+    Result.TriangleCount = TriangleCount;
+    Result.Color = White;
     return Result;
 }
+
+object Mesh1 = {0};
+object Mesh2 = {0};
+object Teapot = {0};
 
 extern RENDERER_INITIALIZE(RendererInitialize)
 {
     memory_arena *Arena = &State->Arena;
     Mesh1 = ParseObject(State, "..\\res\\plane.obj");
     Mesh2 = ParseObject(State, "..\\res\\plane_2.obj");
+    Teapot = ParseObject(State, "..\\res\\teapot.obj");
     int a = 0;
 }
 
@@ -378,7 +437,9 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
 
     DrawRect(Frame, V2s32(0, 0), V2s32(Frame->Width - 1, Frame->Height - 1), Color);
 
-    DrawMesh(Frame, Mesh1.Vertices, Mesh1.VertexCount, Mesh1.Triangles, Mesh1.TriangleCount);
+    DrawMesh(Frame, Mesh1, V2s32(600, 200));
+    DrawMesh(Frame, Mesh2, V2s32(1400, 200));
+    DrawObject(Frame, Teapot);
 }
 
 static inline s32 ToPixelColor(v4f64 Color)

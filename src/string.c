@@ -1,7 +1,7 @@
 #include "platform.h"
 #include "string.h"
 
-inline static string StringC(char *Buffer, umm Size)
+static inline string StringC(c8 *Buffer, umm Size)
 {
     string Result = {.Bytes.Char = Buffer, .Size = Size};
     return Result;
@@ -11,34 +11,33 @@ inline static string StringC(char *Buffer, umm Size)
 
 #define StringCZ(Buffer) StringC((Buffer), ArrayCount(Buffer) - 1)
 
-static string StringCFromTo(char *Buffer, umm FromInclusive, umm ToExclusive)
+static inline string StringCFromTo(c8 *Buffer, umm FromInclusive, umm ToExclusive)
 {
-    int a = 0;
     Assert(FromInclusive <= ToExclusive);
     string Result = StringC(Buffer + FromInclusive, ToExclusive - FromInclusive);
     return Result;
 }
 
-inline static string StringFromTo(string S, umm FromInclusive, umm ToExclusive)
+static inline string StringFromTo(string S, umm FromInclusive, umm ToExclusive)
 {
     Assert(FromInclusive <= S.Size && ToExclusive <= S.Size);
     string Result = StringCFromTo(S.Bytes.Char, FromInclusive, ToExclusive);
     return Result;
 }
 
-inline static string StringFrom(string S, umm FromInclusive)
+static inline string StringFrom(string S, umm FromInclusive)
 {
     string Result = StringCFromTo(S.Bytes.Char, FromInclusive, S.Size);
     return Result;
 }
 
-inline static string StringTo(string S, umm ToExclusive)
+static inline string StringTo(string S, umm ToExclusive)
 {
     string Result = StringCFromTo(S.Bytes.Char, 0, ToExclusive);
     return Result;
 }
 
-umm StringCLength(char *Buffer)
+umm StringCLength(c8 *Buffer)
 {
     umm Result = 0;
     while (Buffer[Result] != 0)
@@ -48,7 +47,7 @@ umm StringCLength(char *Buffer)
     return Result;
 }
 
-umm StringCCopyFromTo(char *Dst, umm DstOffset, char *Src, umm SrcFromInclusive, umm SrcToExclusive)
+umm StringCCopyFromTo(c8 *Dst, umm DstOffset, c8 *Src, umm SrcFromInclusive, umm SrcToExclusive)
 {
     Assert(SrcFromInclusive <= SrcToExclusive);
     umm Count = SrcToExclusive - SrcFromInclusive;
@@ -61,20 +60,20 @@ umm StringCCopyFromTo(char *Dst, umm DstOffset, char *Src, umm SrcFromInclusive,
     return DstOffset + Count;
 }
 
-inline static umm StringCopyFromTo(string Dst, umm DstOffset, string Src, umm SrcFromInclusive, umm SrcToExclusive)
+static inline umm StringCopyFromTo(string Dst, umm DstOffset, string Src, umm SrcFromInclusive, umm SrcToExclusive)
 {
     Assert(Dst.Size - DstOffset >= SrcToExclusive - SrcFromInclusive);
     umm Result = StringCCopyFromTo(Dst.Bytes.Char, DstOffset, Src.Bytes.Char, SrcFromInclusive, SrcToExclusive);
     return Result;
 }
 
-inline static umm StringCopyTo(string Dst, umm DstOffset, string Src, umm SrcToExclusive)
+static inline umm StringCopyTo(string Dst, umm DstOffset, string Src, umm SrcToExclusive)
 {
     umm Result = StringCCopyFromTo(Dst.Bytes.Char, DstOffset, Src.Bytes.Char, 0, SrcToExclusive);
     return Result;
 }
 
-inline static umm StringCopy(string Dst, umm DstOffset, string Src)
+static inline umm StringCopy(string Dst, umm DstOffset, string Src)
 {
     umm Result = StringCopyFromTo(Dst, DstOffset, Src, 0, Src.Size);
     return Result;
@@ -97,20 +96,20 @@ umm StringCopyMultiple(string Dst, umm DstOffset, string *Srcs, u32 SrcCount)
     Result = StringCopyMultiple(Dst, DstOffset, Srcs, SrcCount);\
 }
 
-inline static string ArenaPushString(memory_arena *Arena, umm Size)
+static inline string ArenaPushString(memory_arena *Arena, umm Size)
 {
     string Result = ArenaPushBuffer(Arena, Size);
     return Result;
 }
 
-inline static string ArenaPushStringCopy(memory_arena *Arena, string S)
+static inline string ArenaPushStringCopy(memory_arena *Arena, string S)
 {
     string Result = ArenaPushString(Arena, S.Size);
     StringCopy(Result, 0, S);
     return Result;
 }
 
-inline static string ArenaPushStringCopyFromTo(memory_arena *Arena, string S, umm From, umm To)
+static inline string ArenaPushStringCopyFromTo(memory_arena *Arena, string S, umm From, umm To)
 {
     Assert(To - From <= S.Size);
     string Result = ArenaPushString(Arena, To - From);
@@ -154,7 +153,7 @@ string_list StringSplitLines(memory_arena *Arena, string S)
     return Result;
 }
 
-string_list StringSplitFromTo(memory_arena *Arena, string S, umm From, umm To, char Separator)
+string_list StringSplitFromTo(memory_arena *Arena, string S, umm From, umm To, c8 Separator)
 {
     string_list Result = {};
 
@@ -182,19 +181,19 @@ string_list StringSplitFromTo(memory_arena *Arena, string S, umm From, umm To, c
     return Result;
 }
 
-static inline string_list StringSplitFrom(memory_arena *Arena, string S, umm From, char Separator)
+static inline string_list StringSplitFrom(memory_arena *Arena, string S, umm From, c8 Separator)
 {
     string_list Result = StringSplitFromTo(Arena, S, From, S.Size, Separator);
     return Result;
 }
 
-static inline string_list StringSplit(memory_arena *Arena, string S, char Separator)
+static inline string_list StringSplit(memory_arena *Arena, string S, c8 Separator)
 {
     string_list Result = StringSplitFromTo(Arena, S, 0, S.Size, Separator);
     return Result;
 }
 
-b32 StringCEquals(char *A, umm SizeA, char *B, umm SizeB)
+b32 StringCEquals(c8 *A, umm SizeA, c8 *B, umm SizeB)
 {
     if (SizeA != SizeB)
     {
@@ -212,7 +211,7 @@ b32 StringCEquals(char *A, umm SizeA, char *B, umm SizeB)
     return TRUE;
 }
 
-inline static b32 StringEquals(string A, string B)
+static inline b32 StringEquals(string A, string B)
 {
     b32 Result = StringCEquals(A.Bytes.Char, A.Size, B.Bytes.Char, B.Size);
     return Result;
@@ -221,7 +220,7 @@ inline static b32 StringEquals(string A, string B)
 static string STRING_LF = StringZ("\n");
 static string STRING_CRLF = StringZ("\r\n");
 
-inline static b32 StringIsNewLine(string S)
+static inline b32 StringIsNewLine(string S)
 {
     b32 Result = StringEquals(S, STRING_LF) || StringEquals(S, STRING_CRLF);
     return Result;
@@ -250,11 +249,11 @@ b32 StringEndsWith(string S, string Suffix)
     return Result;
 }
 
-s64 StringFirstIndexOf(string S, char Separator)
+s64 StringFirstIndexOf(string S, c8 Separator)
 {
     for (u32 Index = 0; Index < S.Size; ++Index)
     {
-        char Character = S.Bytes.Char[Index];
+        c8 Character = S.Bytes.Char[Index];
         if (Character == Separator)
         {
             return (s64)Index;
@@ -263,7 +262,7 @@ s64 StringFirstIndexOf(string S, char Separator)
     return -1;
 }
 
-s64 StringLastIndexOf(string S, char Separator)
+s64 StringLastIndexOf(string S, c8 Separator)
 {
     for (u32 Index = S.Size - 1; Index >= 0; --Index)
     {
@@ -281,13 +280,13 @@ string StringFromUMM(memory_arena *Arena, umm V)
     string Result = {};
 
     u64 Value = V;
-    char Temp[20] = {};
+    c8 Temp[20] = {};
     u32 Length = 0;
     while (Value > 0)
     {
         u64 Digit = Value % 10;
         Value /= 10;
-        Temp[Length++] = (char)(48 + Digit);
+        Temp[Length++] = (c8)(48 + Digit);
     }
 
     if (Length == 0)
@@ -357,5 +356,37 @@ f64 StringParseF64(string S)
         }
     }
     f64 Result = Sign * (WholePart + FractionalPart / FractionalDivisor);
+    return Result;
+}
+
+static umm StringCountOccurrenceFromTo(string S, umm From, umm To, c8 C)
+{
+    umm Result = 0;
+    for (umm Index = From; Index < To; ++Index)
+    {
+        c8 Character = S.Bytes.Char[Index];
+        if (C == Character)
+        {
+            ++Result;
+        }
+    }
+    return Result;
+}
+
+static inline umm StringCountOccurrenceFrom(string S, umm From, c8 C)
+{
+    umm Result = StringCountOccurrenceFromTo(S, From, S.Size, C);
+    return Result;
+}
+
+static inline umm StringCountOccurrenceTo(string S, umm To, c8 C)
+{
+    umm Result = StringCountOccurrenceFromTo(S, 0, To, C);
+    return Result;
+}
+
+static inline umm StringCountOccurrence(string S, c8 C)
+{
+    umm Result = StringCountOccurrenceFromTo(S, 0, S.Size, C);
     return Result;
 }

@@ -21,6 +21,24 @@ typedef s32                b32;
 #define FALSE 0
 #define TRUE 1
 
+#define MIN_U8                   0
+#define MIN_U16                  0
+#define MIN_U32                  0
+#define MIN_U64                  0
+#define MAX_U8                0xFF
+#define MAX_U16             0xFFFF
+#define MAX_U32         0xFFFFFFFF
+#define MAX_U64 0xFFFFFFFFFFFFFFFF
+
+#define MIN_S8                  -128
+#define MIN_S16               -32768
+#define MIN_S32          -2147483648
+#define MIN_S64 -9223372036854775808
+#define MAX_S8                   127
+#define MAX_S16                32767
+#define MAX_S32           2147483647
+#define MAX_S64  9223372036854775807
+
 #define Assert(Condition) { if(!(Condition)) { *(s32 *)0 = 0; } }
 #define InvalidCodePath Assert(0)
 

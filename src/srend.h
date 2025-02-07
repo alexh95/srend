@@ -14,6 +14,7 @@ typedef struct
     u32 VertexCount;
     u32 *Triangles;
     u32 TriangleCount;
+    v4f64 Color;
 } object;
 
 #endif
