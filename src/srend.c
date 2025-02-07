@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "string.c"
 #include "vector.c"
 #include "matrix.c"
@@ -273,6 +275,59 @@ static void DrawObject(frame *Frame, object Object)
     }
 }
 
+object Mesh1 = {0};
+object Mesh2 = {0};
+object Teapot = {0};
+object Compass = {0};
+v4f64 GlobalOffset = {0};
+v4f64 GlobalRotation = {0};
+v4f64 GlobalScale = { 1.0, 1.0, 1.0, 1.0 };
+
+static m4f64 Model(v4f64 Translation, v4f64 Rotation, v4f64 Scale)
+{
+    m4f64 TranslationMatrix = M4f64(
+        1.0, 0.0, 0.0, Translation.X,
+        0.0, 1.0, 0.0, Translation.Y,
+        0.0, 0.0, 1.0, Translation.Z,
+        0.0, 0.0, 0.0, 1.0
+    );
+
+    f64 SinX = sin(Rotation.X);
+    f64 CosX = cos(Rotation.X);
+    f64 SinY = sin(Rotation.Y);
+    f64 CosY = cos(Rotation.Y);
+    f64 SinZ = sin(Rotation.Z);
+    f64 CosZ = cos(Rotation.Z);
+    m4f64 RotationXMatrix = M4f64(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, CosX, -SinX, 0.0,
+        0.0, SinX, CosX, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    m4f64 RotationYMatrix = M4f64(
+        CosY, 0.0, SinY, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        -SinY, 0.0, CosY, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    m4f64 RotationZMatrix = M4f64(
+        CosZ, -SinZ, 0.0, 0.0,
+        SinZ, CosZ, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    m4f64 RotationMatrix = M4f64Mul(RotationZMatrix, M4f64Mul(RotationYMatrix, RotationXMatrix));
+
+    m4f64 ScaleMatrix = M4f64(
+        Scale.X, 0.0, 0.0, 0.0,
+        0.0, Scale.Y, 0.0, 0.0,
+        0.0, 0.0, Scale.Z, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+    m4f64 Result = M4f64Mul(TranslationMatrix, M4f64Mul(RotationMatrix, ScaleMatrix));
+    return Result;
+}
+
 static m4f64 ProjectionPerspective(f64 X0, f64 X1, f64 Y0, f64 Y1, f64 Z0, f64 Z1)
 {
     f64 XS = X1 + X0;
@@ -294,8 +349,8 @@ static m4f64 ProjectionPerspective(f64 X0, f64 X1, f64 Y0, f64 Y1, f64 Z0, f64 Z
 static v2s32 NormalToScreenSpace(v4f64 N)
 {
     v2s32 Result = V2s32(
-        0.5 * (1.0 + N.X) * 480,
-        0.5 * (1.0 + N.Y) * 360
+        0.5 * (1.0 - N.Y) * 480,
+        0.5 * (1.0 + N.X) * 360
     );
     return Result;
 }
@@ -314,16 +369,18 @@ static void DrawObject3D(frame *Frame, object Object)
     //     );
     // }
 
-    m4f64 M = M4f64I();
+    m4f64 M = Model(GlobalOffset, GlobalRotation, GlobalScale);
+    m4f64 V = M4f64I();
     m4f64 P = ProjectionPerspective(-5, 5, -5, 5, -5, 5);
+    m4f64 MVP = M4f64Mul(P, M4f64Mul(V, M));
 
     for (s32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
     {
         s32 *Triangle = Object.Triangles + 3 * TriangleIndex;
 
-        v2s32 P0 = NormalToScreenSpace(M4f64MulV(P, Object.Vertices[Triangle[0]]));
-        v2s32 P1 = NormalToScreenSpace(M4f64MulV(P, Object.Vertices[Triangle[1]]));
-        v2s32 P2 = NormalToScreenSpace(M4f64MulV(P, Object.Vertices[Triangle[2]]));
+        v2s32 P0 = NormalToScreenSpace(M4f64MulV(MVP, Object.Vertices[Triangle[0]]));
+        v2s32 P1 = NormalToScreenSpace(M4f64MulV(MVP, Object.Vertices[Triangle[1]]));
+        v2s32 P2 = NormalToScreenSpace(M4f64MulV(MVP, Object.Vertices[Triangle[2]]));
 
         int b = 0;
 
@@ -432,17 +489,12 @@ static object ParseObject(state *State, c8 *FilePath)
     return Result;
 }
 
-object Mesh1 = {0};
-object Mesh2 = {0};
-object Teapot = {0};
-v2s32 GlobalOffset = {0};
-
 extern RENDERER_INITIALIZE(RendererInitialize)
 {
     memory_arena *Arena = &State->Arena;
     Mesh1 = ParseObject(State, "..\\res\\plane.obj");
     Mesh2 = ParseObject(State, "..\\res\\plane_2.obj");
-    Teapot = ParseObject(State, "..\\res\\teapot.obj");
+    Teapot = ParseObject(State, "..\\res\\teapot_2.obj");
 
     int a = 0;
 }
@@ -511,29 +563,92 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     DrawRect(Frame, V2s32(0, 0), V2s32(Frame->Width - 1, Frame->Height - 1), Color);
 
     input *Input = &State->Input;
-    v2s32 Delta = V2s32(0, 0);
+    v4f64 TDelta = V4f64(0, 0, 0, 0);
+    v4f64 RDelta = V4f64(0, 0, 0, 0);
+    if (Input->Forward)
+    {
+        TDelta.X += 1.0 / 64.0;
+    }
+    if (Input->Backward)
+    {
+        TDelta.X -= 1.0 / 64.0;
+    }
     if (Input->Left)
     {
-        Delta.X -= 10;
+        TDelta.Y += 1.0 / 64.0;
     }
     if (Input->Right)
     {
-        Delta.X += 10;
+        TDelta.Y -= 1.0 / 64.0;
     }
     if (Input->Up)
     {
-        Delta.Y += 10;
+        TDelta.Z += 1.0 / 64.0;
     }
     if (Input->Down)
     {
-        Delta.Y -= 10;
+        TDelta.Z -= 1.0 / 64.0;
     }
-    GlobalOffset = V2s32Add(GlobalOffset, Delta);
+    if (Input->RollLeft)
+    {
+        RDelta.X -= 1.0 / 64.0;
+    }
+    if (Input->RollRight)
+    {
+        RDelta.X += 1.0 / 64.0;
+    }
+    if (Input->PitchUp)
+    {
+        RDelta.Y -= 1.0 / 64.0;
+    }
+    if (Input->PitchDown)
+    {
+        RDelta.Y += 1.0 / 64.0;
+    }
+    if (Input->YawLeft)
+    {
+        RDelta.Z += 1.0 / 64.0;
+    }
+    if (Input->YawRight)
+    {
+        RDelta.Z -= 1.0 / 64.0;
+    }
+    GlobalOffset = V4f64Add(GlobalOffset, TDelta);
+    GlobalRotation = V4f64Add(GlobalRotation, RDelta);
 
-    DrawMesh(Frame, Mesh1, V2s32Add(GlobalOffset, V2s32(600, 200)));
+    DrawMesh(Frame, Mesh1, V2s32(600, 200));
     DrawMesh(Frame, Mesh2, V2s32(1400, 200));
     // DrawObject(Frame, Teapot);
-    DrawObject3D(Frame, Teapot);
+
+    v4f64 CompassVertices[] = 
+    {
+        V4f64(0.0, 0.0, -0.5, 1.0), V4f64(4.0, 0.0, -0.5, 1.0), V4f64(0.0, 2.0, -0.5, 1.0),
+        V4f64(0.5, 0.5, 0.5, 1.0), V4f64(2.0, 0.5, 0.5, 1.0), V4f64(0.5, 1.0, 0.5, 1.0),
+    };
+
+    s32 CompassTriangles[] =
+    {
+        // Bottom
+        0, 1, 2,
+        // Top
+        3, 4, 5,
+        // Back
+        0, 3, 2,
+        2, 3, 4,
+        // Right
+        0, 1, 4,
+        0, 4, 3,
+        // Left
+        4, 1, 2,
+        2, 5, 4,
+    };
+
+    Compass.Vertices = CompassVertices;
+    Compass.VertexCount = ArrayCount(CompassVertices);
+    Compass.Triangles = CompassTriangles;
+    Compass.TriangleCount = ArrayCount(CompassTriangles) / 3;
+
+    DrawObject3D(Frame, Compass);
 }
 
 static inline s32 ToPixelColor(v4f64 Color)

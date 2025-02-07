@@ -81,13 +81,45 @@ static LRESULT CALLBACK WindowProc(
                 }
                 else if (WParam == 'W')
                 {
-                    GlobalState.Input.Up = IsDown;
+                    GlobalState.Input.Forward = IsDown;
                 }
                 else if (WParam == 'S')
                 {
+                    GlobalState.Input.Backward = IsDown;
+                }
+                else if (WParam == VK_SPACE)
+                {
+                    GlobalState.Input.Up = IsDown;
+                }
+                else if (WParam == 'C')
+                {
                     GlobalState.Input.Down = IsDown;
                 }
-                if (WParam == VK_LEFT)
+                else if (WParam == 'Q')
+                {
+                    GlobalState.Input.RollLeft = IsDown;
+                }
+                else if (WParam == 'E')
+                {
+                    GlobalState.Input.RollRight = IsDown;
+                }
+                else if (WParam == 'Z')
+                {
+                    GlobalState.Input.PitchUp = IsDown;
+                }
+                else if (WParam == 'X')
+                {
+                    GlobalState.Input.PitchDown = IsDown;
+                }
+                else if (WParam == 'R')
+                {
+                    GlobalState.Input.YawLeft = IsDown;
+                }
+                else if (WParam == 'T')
+                {
+                    GlobalState.Input.YawRight = IsDown;
+                }
+                else if (WParam == VK_LEFT)
                 {
                     GlobalState.Input.Left = IsDown;
                 }
@@ -97,11 +129,11 @@ static LRESULT CALLBACK WindowProc(
                 }
                 else if (WParam == VK_UP)
                 {
-                    GlobalState.Input.Up = IsDown;
+                    GlobalState.Input.Forward = IsDown;
                 }
                 else if (WParam == VK_DOWN)
                 {
-                    GlobalState.Input.Down = IsDown;
+                    GlobalState.Input.Backward = IsDown;
                 }
             }
         } break;
@@ -139,6 +171,7 @@ OPEN_AND_READ_FILE(Win32OpenAndReadFile)
 
     c8 *FileData = VirtualAlloc(0, FileSize.QuadPart, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     ReadFile(FileHandle, FileData, FileSize.LowPart, 0, 0);
+    CloseHandle(FileHandle);
 
     Result.Data = FileData;
     Result.Size = FileSize.QuadPart;

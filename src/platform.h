@@ -137,8 +137,16 @@ typedef struct
 
     b32 Left;
     b32 Right;
+    b32 Forward;
+    b32 Backward;
     b32 Up;
     b32 Down;
+    b32 RollLeft;
+    b32 RollRight;
+    b32 PitchUp;
+    b32 PitchDown;
+    b32 YawLeft;
+    b32 YawRight;
 } input;
 
 typedef struct
