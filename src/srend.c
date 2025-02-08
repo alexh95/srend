@@ -5,12 +5,18 @@
 #include "matrix.c"
 #include "srend.h"
 
-static u32 Offset = 0;
+static u32 GlobalFrameCounter = 0;
 
-v4f64 Red = {1.0, 0.0, 0.0, 1.0};
-v4f64 Green = {0.0, 1.0, 0.0, 1.0};
-v4f64 Blue = {0.0, 0.0, 1.0, 1.0};
-v4f64 White = {1.0, 1.0, 1.0, 1.0};
+static v4f64 GlobalRed = {{ 1.0, 0.0, 0.0, 1.0 }};
+static v4f64 GlobalGreen = {{ 0.0, 1.0, 0.0, 1.0 }};
+static v4f64 GlobalBlue = {{ 0.0, 0.0, 1.0, 1.0 }};
+static v4f64 GlobalWhite = {{ 1.0, 1.0, 1.0, 1.0 }};
+
+static inline s32 ToPixelColor(v4f64 Color)
+{
+    s32 Result = ((s8)(Color.A * 255.0) << 24) | ((s8)(Color.R * 255.0) << 16) | ((s8)(Color.G * 255.0) << 8) | ((s8)(Color.B * 255.0) << 0);
+    return Result;
+}
 
 static void DrawScrollingGradient(frame *Frame)
 {
@@ -18,10 +24,10 @@ static void DrawScrollingGradient(frame *Frame)
 
     for (u32 Y = 0; Y < Frame->Height; ++Y)
     {
-        u8 Blue = (Y + Offset / 8) & 0xFF;
+        u8 Blue = (Y + GlobalFrameCounter / 8) & 0xFF;
         for (u32 X = 0; X < Frame->Width; ++X)
         {
-            u8 Green = (X + Offset / 8) & 0xFF;
+            u8 Green = (X + GlobalFrameCounter / 8) & 0xFF;
             Frame->Pixels[Y * Frame->Width + X] = (Red << 16) | (Green << 8) | Blue;
         }
     }
@@ -30,7 +36,7 @@ static void DrawScrollingGradient(frame *Frame)
 
 static void DrawPixel(frame *Frame, s32 X, s32 Y, s32 C)
 {
-    if (X >= 0 && X < Frame->Width && Y >= 0 && Y < Frame->Height)
+    if (X >= 0 && X < (s32)Frame->Width && Y >= 0 && Y < (s32)Frame->Height)
     {
         s32 FrameIndex = Y * Frame->Width + X;
         Frame->Pixels[FrameIndex] = C;
@@ -175,27 +181,27 @@ static void DrawMesh_(frame *Frame, v2s32 *Points, s32 PointCount, s32 (*Triangl
     for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
     {
         s32 *Triangle = Triangles[TriangleIndex];
-        Rasterize(Frame, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], White);
+        Rasterize(Frame, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], GlobalWhite);
     }
 
     for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
     {
         s32 *Triangle = Triangles[TriangleIndex];
-        DrawTriangle(Frame, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], Red);
+        DrawTriangle(Frame, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], GlobalRed);
     }
 
     for (s32 PointIndex = 0; PointIndex < PointCount; ++PointIndex)
     {
         v2s32 Point = Points[PointIndex];
-        DrawPoint(Frame, Point, Green);
+        DrawPoint(Frame, Point, GlobalGreen);
     }
 }
 
 static v2s32 ToScreenSpace(v4f64 P, v2s32 Offset)
 {
     v2s32 Result = V2s32(
-        P.X * 150.0 + Offset.X,
-        P.Z * 150.0 + Offset.Y
+        (s32)(P.X * 150.0 + Offset.X),
+        (s32)(P.Z * 150.0 + Offset.Y)
     );
     return Result;
 }
@@ -203,17 +209,17 @@ static v2s32 ToScreenSpace(v4f64 P, v2s32 Offset)
 static v2s32 ToScreenSpaceObj(v4f64 P)
 {
     v2s32 Result = V2s32(
-        P.X * 300.0 + 1000.0,
-        P.Y * 300.0 + 300.0
+        (s32)(P.X * 300.0 + 1000.0),
+        (s32)(P.Y * 300.0 + 300.0)
     );
     return Result;
 }
 
 static void DrawMesh(frame *Frame, object Mesh, v2s32 Offset)
 {
-    for (s32 TriangleIndex = 0; TriangleIndex < Mesh.TriangleCount; ++TriangleIndex)
+    for (u32 TriangleIndex = 0; TriangleIndex < Mesh.TriangleCount; ++TriangleIndex)
     {
-        s32 *Triangle = Mesh.Triangles + 3 * TriangleIndex;
+        u32 *Triangle = Mesh.Triangles + 3 * TriangleIndex;
         Rasterize(
             Frame, 
             ToScreenSpace(Mesh.Vertices[Triangle[0]], Offset), 
@@ -223,30 +229,30 @@ static void DrawMesh(frame *Frame, object Mesh, v2s32 Offset)
         );
     }
 
-    for (s32 TriangleIndex = 0; TriangleIndex < Mesh.TriangleCount; ++TriangleIndex)
+    for (u32 TriangleIndex = 0; TriangleIndex < Mesh.TriangleCount; ++TriangleIndex)
     {
-        s32 *Triangle = Mesh.Triangles + 3 * TriangleIndex;
+        u32 *Triangle = Mesh.Triangles + 3 * TriangleIndex;
         DrawTriangle(
             Frame, 
             ToScreenSpace(Mesh.Vertices[Triangle[0]], Offset), 
             ToScreenSpace(Mesh.Vertices[Triangle[1]], Offset), 
             ToScreenSpace(Mesh.Vertices[Triangle[2]], Offset), 
-            Red
+            GlobalRed
         );
     }
 
-    for (s32 PointIndex = 0; PointIndex < Mesh.VertexCount; ++PointIndex)
+    for (u32 PointIndex = 0; PointIndex < Mesh.VertexCount; ++PointIndex)
     {
         v2s32 Point = ToScreenSpace(Mesh.Vertices[PointIndex], Offset);
-        DrawPoint(Frame, Point, Green);
+        DrawPoint(Frame, Point, GlobalGreen);
     }
 }
 
 static void DrawObject(frame *Frame, object Object)
 {
-    for (s32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+    for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
     {
-        s32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+        u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
         Rasterize(
             Frame, 
             ToScreenSpaceObj(Object.Vertices[Triangle[0]]), 
@@ -256,22 +262,22 @@ static void DrawObject(frame *Frame, object Object)
         );
     }
 
-    for (s32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+    for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
     {
-        s32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+        u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
         DrawTriangle(
             Frame, 
             ToScreenSpaceObj(Object.Vertices[Triangle[0]]), 
             ToScreenSpaceObj(Object.Vertices[Triangle[1]]), 
             ToScreenSpaceObj(Object.Vertices[Triangle[2]]), 
-            Red
+            GlobalRed
         );
     }
 
-    for (s32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
+    for (u32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
     {
         v2s32 Point = ToScreenSpaceObj(Object.Vertices[PointIndex]);
-        DrawPoint(Frame, Point, Green);
+        DrawPoint(Frame, Point, GlobalGreen);
     }
 }
 
@@ -281,7 +287,7 @@ object Teapot = {0};
 object Compass = {0};
 v4f64 GlobalOffset = {0};
 v4f64 GlobalRotation = {0};
-v4f64 GlobalScale = { 1.0, 1.0, 1.0, 1.0 };
+v4f64 GlobalScale = {{ 1.0, 1.0, 1.0, 1.0 }};
 
 static m4f64 Model(v4f64 Translation, v4f64 Rotation, v4f64 Scale)
 {
@@ -349,17 +355,17 @@ static m4f64 ProjectionPerspective(f64 X0, f64 X1, f64 Y0, f64 Y1, f64 Z0, f64 Z
 static v2s32 NormalToScreenSpace(v4f64 N)
 {
     v2s32 Result = V2s32(
-        0.5 * (1.0 - N.Y) * 480,
-        0.5 * (1.0 + N.X) * 360
+        (s32)(0.5 * (1.0 - N.Y) * 480.0),
+        (s32)(0.5 * (1.0 + N.X) * 360.0)
     );
     return Result;
 }
 
 static void DrawObject3D(frame *Frame, object Object)
 {
-    // for (s32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+    // for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
     // {
-    //     s32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+    //     u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
     //     Rasterize(
     //         Frame, 
     //         ToScreenSpaceObj(Object.Vertices[Triangle[0]]), 
@@ -374,9 +380,9 @@ static void DrawObject3D(frame *Frame, object Object)
     m4f64 P = ProjectionPerspective(-5, 5, -5, 5, -5, 5);
     m4f64 MVP = M4f64Mul(P, M4f64Mul(V, M));
 
-    for (s32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+    for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
     {
-        s32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+        u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
 
         v2s32 P0 = NormalToScreenSpace(M4f64MulV(MVP, Object.Vertices[Triangle[0]]));
         v2s32 P1 = NormalToScreenSpace(M4f64MulV(MVP, Object.Vertices[Triangle[1]]));
@@ -389,11 +395,11 @@ static void DrawObject3D(frame *Frame, object Object)
             P0, 
             P1, 
             P2, 
-            Red
+            GlobalRed
         );
     }
 
-    // for (s32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
+    // for (u32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
     // {
     //     v2s32 Point = ToScreenSpaceObj(Object.Vertices[PointIndex]);
     //     DrawPoint(Frame, Point, Green);
@@ -434,9 +440,10 @@ static object ParseObject(state *State, c8 *FilePath)
                     FirstFaceIndex = LineIndex;
                 }
                 ++FaceCount;
-                umm VertexCount = StringCountOccurrenceFrom(Line, 2, ' ') + 1;
-                Assert(VertexCount >= 3);
-                TriangleCount += VertexCount - 2;
+
+                umm LineVertexCount = StringCountOccurrenceFrom(Line, 2, ' ') + 1;
+                Assert(LineVertexCount >= 3);
+                TriangleCount += (u32)LineVertexCount - 2;
             }
         }
     }
@@ -457,7 +464,7 @@ static object ParseObject(state *State, c8 *FilePath)
         }
     }
 
-    s32 *Triangles = ArenaPushArray(Arena, s32, 3 * TriangleCount);
+    u32 *Triangles = ArenaPushArray(Arena, u32, 3 * TriangleCount);
     u32 TriangleVertexIndex = 0;
     for (u32 FaceIndex = 0; FaceIndex < FaceCount; ++FaceIndex)
     {
@@ -485,7 +492,7 @@ static object ParseObject(state *State, c8 *FilePath)
     Result.VertexCount = VertexCount;
     Result.Triangles = Triangles;
     Result.TriangleCount = TriangleCount;
-    Result.Color = White;
+    Result.Color = GlobalWhite;
     return Result;
 }
 
@@ -501,8 +508,8 @@ extern RENDERER_INITIALIZE(RendererInitialize)
 
 extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
 {
-    v4f64 Color = V4f64(1.0, (Offset & 0x0FFF) / (f64)0x0FFF, 0.0, 1.0);
-    ++Offset;
+    v4f64 Color = V4f64(1.0, (GlobalFrameCounter & 0x0FFF) / (f64)0x0FFF, 0.0, 1.0);
+    ++GlobalFrameCounter;
 
     frame *Frame = &State->Frame;
     DrawScrollingGradient(Frame);
@@ -516,8 +523,8 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     v2s32 ScanCenter = V2s32Div(V2s32Add(ScanP0, ScanP1), 2);
     
     DrawRect(Frame, V2s32(20, 180), V2s32(121, 281), Color);
-    s32 ScanBorderIndex = (Offset / 50) % (4 * ScanSize);
-    v2s32 ScanBorderPoint;
+    s32 ScanBorderIndex = (GlobalFrameCounter / 50) % (4 * ScanSize);
+    v2s32 ScanBorderPoint = {{ 0, 0 }};
     if (ScanBorderIndex < ScanSize)
     {
         ScanBorderPoint = V2s32(ScanP0.X + ScanBorderIndex, ScanP0.Y);
@@ -542,7 +549,7 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     s32 T0 = EdgeFunction(Trig0[2], Trig0[1], Trig0[0]);
     s32 T1 = EdgeFunction(Trig1[0], Trig1[1], Trig1[2]);
 
-    Rasterize(Frame, Trig1[0], Trig1[1], Trig1[2], White);
+    Rasterize(Frame, Trig1[0], Trig1[1], Trig1[2], GlobalWhite);
 
     DrawTriangle(Frame, Trig0[0], Trig0[1], Trig0[2], Color);
     DrawTriangle(Frame, Trig1[0], Trig1[1], Trig1[2], Color);
@@ -626,7 +633,7 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
         V4f64(0.5, 0.5, 0.5, 1.0), V4f64(2.0, 0.5, 0.5, 1.0), V4f64(0.5, 1.0, 0.5, 1.0),
     };
 
-    s32 CompassTriangles[] =
+    u32 CompassTriangles[] =
     {
         // Bottom
         0, 1, 2,
@@ -649,10 +656,4 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     Compass.TriangleCount = ArrayCount(CompassTriangles) / 3;
 
     DrawObject3D(Frame, Compass);
-}
-
-static inline s32 ToPixelColor(v4f64 Color)
-{
-    s32 Result = ((s8)(Color.A * 255.0) << 24) | ((s8)(Color.R * 255.0) << 16) | ((s8)(Color.G * 255.0) << 8) | ((s8)(Color.B * 255.0) << 0);
-    return Result;
 }

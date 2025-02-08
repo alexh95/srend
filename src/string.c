@@ -79,7 +79,7 @@ static inline umm StringCopy(string Dst, umm DstOffset, string Src)
     return Result;
 }
 
-umm StringCopyMultiple(string Dst, umm DstOffset, string *Srcs, u32 SrcCount)
+static inline umm StringCopyMultiple(string Dst, umm DstOffset, string *Srcs, u32 SrcCount)
 {
     umm Result = DstOffset;
     for (u32 Index = 0; Index < SrcCount; ++Index)
@@ -200,7 +200,7 @@ b32 StringCEquals(c8 *A, umm SizeA, c8 *B, umm SizeB)
         return FALSE;
     }
 
-    for (int Index = 0; Index < SizeA; ++Index)
+    for (umm Index = 0; Index < SizeA; ++Index)
     {
         if (A[Index] != B[Index])
         {
@@ -226,7 +226,7 @@ static inline b32 StringIsNewLine(string S)
     return Result;
 }
 
-b32 StringStartsWith(string S, string Prefix)
+static b32 StringStartsWith(string S, string Prefix)
 {
     if (S.Size < Prefix.Size)
     {
@@ -237,7 +237,7 @@ b32 StringStartsWith(string S, string Prefix)
     return Result;
 }
 
-b32 StringEndsWith(string S, string Suffix)
+static b32 StringEndsWith(string S, string Suffix)
 {
     if (S.Size < Suffix.Size)
     {
@@ -249,7 +249,7 @@ b32 StringEndsWith(string S, string Suffix)
     return Result;
 }
 
-s64 StringFirstIndexOf(string S, c8 Separator)
+static s64 StringFirstIndexOf(string S, c8 Separator)
 {
     for (u32 Index = 0; Index < S.Size; ++Index)
     {
@@ -262,9 +262,9 @@ s64 StringFirstIndexOf(string S, c8 Separator)
     return -1;
 }
 
-s64 StringLastIndexOf(string S, c8 Separator)
+static s64 StringLastIndexOf(string S, c8 Separator)
 {
-    for (u32 Index = S.Size - 1; Index >= 0; --Index)
+    for (s32 Index = (s32)S.Size - 1; Index >= 0; --Index)
     {
         char Character = S.Bytes.Char[Index];
         if (Character == Separator)
@@ -275,7 +275,7 @@ s64 StringLastIndexOf(string S, c8 Separator)
     return -1;
 }
 
-string StringFromUMM(memory_arena *Arena, umm V)
+static string StringFromUMM(memory_arena *Arena, umm V)
 {
     string Result = {};
 
@@ -303,7 +303,7 @@ string StringFromUMM(memory_arena *Arena, umm V)
     return Result;
 }
 
-s32 StringParseS32(string S)
+static s32 StringParseS32(string S)
 {
     b32 IsNegative = FALSE;
     s32 Result = 0;
@@ -323,9 +323,9 @@ s32 StringParseS32(string S)
     return IsNegative ? -Result : Result;
 }
 
-f64 StringParseF64(string S)
+static f64 StringParseF64(string S)
 {
-    b32 Sign = 1.0;
+    f64 Sign = 1.0;
     f64 WholePart = 0.0;
     f64 FractionalPart = 0.0;
     f64 FractionalDivisor = 1.0;

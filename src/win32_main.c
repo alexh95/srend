@@ -187,8 +187,8 @@ int WinMain(
 )
 {
     HMODULE RendererDll = LoadLibraryA("srend.dll");
-    renderer_initialize *RendererInitialize = (renderer_initialize *)GetProcAddress(RendererDll, "RendererInitialize");
-    renderer_update_and_draw *RendererUpdateAndDraw = (renderer_update_and_draw *)GetProcAddress(RendererDll, "RendererUpdateAndDraw");
+    renderer_initialize *RendererInitialize = (renderer_initialize *)(void *)GetProcAddress(RendererDll, "RendererInitialize");
+    renderer_update_and_draw *RendererUpdateAndDraw = (renderer_update_and_draw *)(void *)GetProcAddress(RendererDll, "RendererUpdateAndDraw");
 
     SetProcessDPIAware();
 

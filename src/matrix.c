@@ -9,16 +9,16 @@ static m4f64 M4f64(
 )
 {
     m4f64 Result =
-    {
+    {{
         A00, A01, A02, A03,
         A10, A11, A12, A13,
         A20, A21, A22, A23,
         A30, A31, A32, A33,
-    };
+    }};
     return Result;
 }
 
-static inline m4f64 M4f64I()
+static inline m4f64 M4f64I(void)
 {
     m4f64 Result = M4f64(
         1.0, 0.0, 0.0, 0.0,
@@ -29,7 +29,7 @@ static inline m4f64 M4f64I()
     return Result;
 }
 
-static inline m4f64 M4f64Z()
+static inline m4f64 M4f64Z(void)
 {
     m4f64 Result = M4f64(
         0.0, 0.0, 0.0, 0.0,

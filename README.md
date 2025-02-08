@@ -6,5 +6,5 @@
 * Platform abstraction layer (Input, File IO)
 
 ### TODO Renderer:
-* Coordinate systems
+* Depth buffer
 * Models / OBJ file
