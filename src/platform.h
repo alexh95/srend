@@ -93,6 +93,9 @@ typedef struct struct_memory_arena
     umm MaxSize;
 } memory_arena;
 
+#include "vector.h"
+#include "matrix.h"
+
 #define KiloBytes(Size) (1024LL * (Size))
 #define MegaBytes(Size) (1024LL * KiloBytes(Size))
 #define GigaBytes(Size) (1024LL * MegaBytes(Size))
@@ -160,6 +163,8 @@ typedef struct
     memory_arena Arena;
     input Input;
     frame Frame;
+    frame Depth;
+    m4f64 MVP;
 } state;
 
 #define RENDERER_INITIALIZE(Name) void (Name)(state *State)

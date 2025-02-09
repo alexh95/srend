@@ -336,6 +336,23 @@ static m4f64 Model(v4f64 Translation, v4f64 Rotation, v4f64 Scale)
     return Result;
 }
 
+static m4f64 ViewMatrix(v4f64 CameraPosition, v4f64 CameraTargetPosition, v4f64 Up)
+{
+    v4f64 Forward = V4f64Normalize(V4f64Sub(CameraTargetPosition, CameraPosition));
+
+    v4f64 U = Forward;
+    v4f64 V = V4f64Cross(Forward, Up);
+    v4f64 W = Up;
+
+    m4f64 Result = M4f64(
+        U.X, U.Y, U.Z, -V4f64Dot(CameraPosition, U),
+        V.X, V.Y, V.Z, -V4f64Dot(CameraPosition, V),
+        W.X, W.Y, W.Z, -V4f64Dot(CameraPosition, W),
+        0.0, 0.0, 0.0, 1.0
+    );
+    return Result;
+}
+
 static m4f64 ProjectionOrtho(f64 X0, f64 X1, f64 Y0, f64 Y1, f64 Z0, f64 Z1)
 {
     f64 XS = X1 + X0;
@@ -404,15 +421,9 @@ static v2s32 ToScreen(v4f64 S)
     return Result;
 }
 
-static void DrawObject3D(frame *Frame, object Object)
+static void DrawObject3D(state *State, object Object)
 {
-    m4f64 M = Model(GlobalOffset, GlobalRotation, GlobalScale);
-    m4f64 V = M4f64I();
-    // m4f64 P = ProjectionOrtho(0.1, 5.0, -5.0, 5.0, -5.0, 5.0);
-    m4f64 P = ProjectionPerspective(0.1, 100.0, (f64)Frame->Height / (f64)Frame->Width, 0.5 * PI);
-    m4f64 MVP = M4f64Mul(P, M4f64Mul(V, M));
-
-    // for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+        // for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
     // {
     //     u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
 
@@ -448,18 +459,18 @@ static void DrawObject3D(frame *Frame, object Object)
         v4f64 W1 = Object.Vertices[Triangle[1]];
         v4f64 W2 = Object.Vertices[Triangle[2]];
 
-        v4f64 N0 = M4f64MulV(MVP, W0);
-        v4f64 N1 = M4f64MulV(MVP, W1);
-        v4f64 N2 = M4f64MulV(MVP, W2);
+        v4f64 N0 = M4f64MulV(State->MVP, W0);
+        v4f64 N1 = M4f64MulV(State->MVP, W1);
+        v4f64 N2 = M4f64MulV(State->MVP, W2);
 
-        v4f64 S0 = NormalToScreenSpace(Frame, N0);
-        v4f64 S1 = NormalToScreenSpace(Frame, N1);
-        v4f64 S2 = NormalToScreenSpace(Frame, N2);
+        v4f64 S0 = NormalToScreenSpace(&State->Frame, N0);
+        v4f64 S1 = NormalToScreenSpace(&State->Frame, N1);
+        v4f64 S2 = NormalToScreenSpace(&State->Frame, N2);
 
         if (S0.X >= 0.0 && S0.X <= 1.0 && S1.X >= 0.0 && S1.X <= 1.0 && S2.X >= 0.0 && S2.X <= 1.0)
         {
             DrawTriangle(
-                Frame, 
+                &State->Frame, 
                 ToScreen(S0), 
                 ToScreen(S1), 
                 ToScreen(S2), 
@@ -575,6 +586,9 @@ extern RENDERER_INITIALIZE(RendererInitialize)
     int a = 0;
 }
 
+v4f64 CameraPosition = {{ 0.0, 0.0, 0.0, 1.0 }};
+v4f64 CameraRotation = {{ 0.0, 0.0, 0.0, 0.0 }};
+
 extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
 {
     v4f64 Color = V4f64(1.0, (GlobalFrameCounter & 0x0FFF) / (f64)0x0FFF, 0.0, 1.0);
@@ -689,8 +703,8 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     {
         RDelta.Z -= 1.0 / 64.0;
     }
-    GlobalOffset = V4f64Add(GlobalOffset, TDelta);
-    GlobalRotation = V4f64Add(GlobalRotation, RDelta);
+    CameraPosition = V4f64Add(CameraPosition, TDelta);
+    CameraRotation = V4f64Add(CameraRotation, RDelta);
 
     DrawMesh(Frame, Mesh1, V2s32(600, 200));
     DrawMesh(Frame, Mesh2, V2s32(1400, 200));
@@ -736,13 +750,26 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
         0, 2, 3,
     };
 
-    object Square;
+    object Square = {0};
     Square.Vertices = SquareVertices;
     Square.VertexCount = ArrayCount(SquareVertices);
     Square.Triangles = SquareTriangles;
     Square.TriangleCount = ArrayCount(SquareTriangles) / 3;
+    // CameraPosition.X = 4.0;
+    m4f64 CameraRotationMatrix = Model(V4f64(0.0, 0.0, 0.0, 0.0), CameraRotation, V4f64(1.0, 1.0, 1.0, 0.0));
+    v4f64 CameraForward = M4f64MulV(CameraRotationMatrix, V4f64(1.0, 0.0, 0.0, 0.0));
+    v4f64 CameraTarget = V4f64Add(CameraPosition, CameraForward);
+    v4f64 CameraUp = M4f64MulV(CameraRotationMatrix, V4f64(0.0, 0.0, 1.0, 0.0));
 
-    // DrawObject3D(Frame, Square);
-    // DrawObject3D(Frame, Compass);
-    DrawObject3D(Frame, Teapot);
+    m4f64 M = Model(GlobalOffset, GlobalRotation, GlobalScale);
+    m4f64 V = ViewMatrix(CameraPosition, CameraTarget, CameraUp);
+    // m4f64 P = ProjectionOrtho(0.1, 10.0, -5.0, 5.0, -5.0, 5.0);
+    m4f64 P = ProjectionPerspective(0.1, 100.0, (f64)Frame->Height / (f64)Frame->Width, 0.5 * PI);
+    m4f64 MVP = M4f64Mul(P, M4f64Mul(V, M));
+
+    State->MVP = MVP;
+
+    // DrawObject3D(State, Square);
+    // DrawObject3D(State, Compass);
+    DrawObject3D(State, Teapot);
 }

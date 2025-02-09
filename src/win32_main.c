@@ -3,8 +3,8 @@
 #include "platform.h"
 #include "srend.h"
 
-#define INITIAL_WIDTH 480
-#define INITIAL_HEIGHT 360
+#define INITIAL_WIDTH (4 * 200)
+#define INITIAL_HEIGHT (3 * 200)
 
 static state GlobalState = {0};
 
