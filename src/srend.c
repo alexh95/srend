@@ -5,6 +5,8 @@
 #include "matrix.c"
 #include "srend.h"
 
+#define PI 3.14159265358979323846
+
 static u32 GlobalFrameCounter = 0;
 
 static v4f64 GlobalRed = {{ 1.0, 0.0, 0.0, 1.0 }};
@@ -334,7 +336,7 @@ static m4f64 Model(v4f64 Translation, v4f64 Rotation, v4f64 Scale)
     return Result;
 }
 
-static m4f64 ProjectionPerspective(f64 X0, f64 X1, f64 Y0, f64 Y1, f64 Z0, f64 Z1)
+static m4f64 ProjectionOrtho(f64 X0, f64 X1, f64 Y0, f64 Y1, f64 Z0, f64 Z1)
 {
     f64 XS = X1 + X0;
     f64 YS = Y1 + Y0;
@@ -352,51 +354,118 @@ static m4f64 ProjectionPerspective(f64 X0, f64 X1, f64 Y0, f64 Y1, f64 Z0, f64 Z
     return Result;
 }
 
-static v2s32 NormalToScreenSpace(v4f64 N)
+static f64 Clamp(f64 V, f64 V0, f64 V1)
 {
-    v2s32 Result = V2s32(
-        (s32)(0.5 * (1.0 - N.Y) * 480.0),
-        (s32)(0.5 * (1.0 + N.X) * 360.0)
+    if (V0 < V)
+    {
+        return V0;
+    }
+    else if (V > V1)
+    {
+        return V1;
+    }
+    return V;
+}
+
+// NOTE(alex): maps the objects in the frustrum to [-1, 1] on Y and Z and X to [0, 1]
+static m4f64 ProjectionPerspective(f64 X0, f64 X1, f64 AspectRatio, f64 FieldOfView)
+{
+    f64 FieldOfViewModifier = 1.0 / tan(0.5 * FieldOfView);
+    m4f64 Result = M4f64(
+        1.0 / (X1 - X0), 0.0, 0.0, -X0 / (X1 - X0),
+        0.0, AspectRatio * FieldOfViewModifier, 0.0, 0.0,
+        0.0, 0.0, FieldOfViewModifier, 0.0,
+        1.0, 0.0, 0.0, 0.0
     );
+    return Result;
+}
+
+static v4f64 NormalToScreenSpace(frame* Frame, v4f64 N)
+{
+    v4f64 Result = N;
+
+    if (N.W != 0.0)
+    {
+        f64 W = ABS(Result.W);
+        Result.X /= W;
+        Result.Y /= W;
+        Result.Z /= W;
+    }
+
+    Result.Y = 0.5 * (1.0 - Result.Y) * (f64)Frame->Width;
+    Result.Z = 0.5 * (1.0 + Result.Z) * (f64)Frame->Height;
+
+    return Result;
+}
+
+static v2s32 ToScreen(v4f64 S)
+{
+    v2s32 Result = V2s32((s32)S.Y, (s32)S.Z);
     return Result;
 }
 
 static void DrawObject3D(frame *Frame, object Object)
 {
+    m4f64 M = Model(GlobalOffset, GlobalRotation, GlobalScale);
+    m4f64 V = M4f64I();
+    // m4f64 P = ProjectionOrtho(0.1, 5.0, -5.0, 5.0, -5.0, 5.0);
+    m4f64 P = ProjectionPerspective(0.1, 100.0, (f64)Frame->Height / (f64)Frame->Width, 0.5 * PI);
+    m4f64 MVP = M4f64Mul(P, M4f64Mul(V, M));
+
     // for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
     // {
     //     u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
-    //     Rasterize(
-    //         Frame, 
-    //         ToScreenSpaceObj(Object.Vertices[Triangle[0]]), 
-    //         ToScreenSpaceObj(Object.Vertices[Triangle[1]]), 
-    //         ToScreenSpaceObj(Object.Vertices[Triangle[2]]), 
-    //         Object.Color
-    //     );
-    // }
 
-    m4f64 M = Model(GlobalOffset, GlobalRotation, GlobalScale);
-    m4f64 V = M4f64I();
-    m4f64 P = ProjectionPerspective(-5, 5, -5, 5, -5, 5);
-    m4f64 MVP = M4f64Mul(P, M4f64Mul(V, M));
+    //     v4f64 W0 = Object.Vertices[Triangle[0]];
+    //     v4f64 W1 = Object.Vertices[Triangle[1]];
+    //     v4f64 W2 = Object.Vertices[Triangle[2]];
+
+    //     v4f64 N0 = M4f64MulV(MVP, W0);
+    //     v4f64 N1 = M4f64MulV(MVP, W1);
+    //     v4f64 N2 = M4f64MulV(MVP, W2);
+
+    //     v4f64 S0 = NormalToScreenSpace(Frame, N0);
+    //     v4f64 S1 = NormalToScreenSpace(Frame, N1);
+    //     v4f64 S2 = NormalToScreenSpace(Frame, N2);
+
+    //     if (S0.X >= 0.0 && S0.X <= 1.0 && S1.X >= 0.0 && S1.X <= 1.0 && S2.X >= 0.0 && S2.X <= 1.0)
+    //     {
+    //         Rasterize(
+    //             Frame, 
+    //             ToScreen(S0), 
+    //             ToScreen(S1), 
+    //             ToScreen(S2), 
+    //             Object.Color
+    //         );
+    //     }
+    // }
 
     for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
     {
         u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
 
-        v2s32 P0 = NormalToScreenSpace(M4f64MulV(MVP, Object.Vertices[Triangle[0]]));
-        v2s32 P1 = NormalToScreenSpace(M4f64MulV(MVP, Object.Vertices[Triangle[1]]));
-        v2s32 P2 = NormalToScreenSpace(M4f64MulV(MVP, Object.Vertices[Triangle[2]]));
+        v4f64 W0 = Object.Vertices[Triangle[0]];
+        v4f64 W1 = Object.Vertices[Triangle[1]];
+        v4f64 W2 = Object.Vertices[Triangle[2]];
 
-        int b = 0;
+        v4f64 N0 = M4f64MulV(MVP, W0);
+        v4f64 N1 = M4f64MulV(MVP, W1);
+        v4f64 N2 = M4f64MulV(MVP, W2);
 
-        DrawTriangle(
-            Frame, 
-            P0, 
-            P1, 
-            P2, 
-            GlobalRed
-        );
+        v4f64 S0 = NormalToScreenSpace(Frame, N0);
+        v4f64 S1 = NormalToScreenSpace(Frame, N1);
+        v4f64 S2 = NormalToScreenSpace(Frame, N2);
+
+        if (S0.X >= 0.0 && S0.X <= 1.0 && S1.X >= 0.0 && S1.X <= 1.0 && S2.X >= 0.0 && S2.X <= 1.0)
+        {
+            DrawTriangle(
+                Frame, 
+                ToScreen(S0), 
+                ToScreen(S1), 
+                ToScreen(S2), 
+                GlobalRed
+            );
+        }
     }
 
     // for (u32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
@@ -655,5 +724,25 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     Compass.Triangles = CompassTriangles;
     Compass.TriangleCount = ArrayCount(CompassTriangles) / 3;
 
-    DrawObject3D(Frame, Compass);
+    v4f64 SquareVertices[] =
+    {
+        V4f64(2.0, -2.0, -2.0, 1.0), V4f64(2.0, -2.0, 2.0, 1.0),
+        V4f64(2.0, 2.0, 2.0, 1.0), V4f64(2.0, 2.0, -2.0, 1.0),
+    };
+
+    u32 SquareTriangles[] =
+    {
+        0, 1, 2,
+        0, 2, 3,
+    };
+
+    object Square;
+    Square.Vertices = SquareVertices;
+    Square.VertexCount = ArrayCount(SquareVertices);
+    Square.Triangles = SquareTriangles;
+    Square.TriangleCount = ArrayCount(SquareTriangles) / 3;
+
+    // DrawObject3D(Frame, Square);
+    // DrawObject3D(Frame, Compass);
+    DrawObject3D(Frame, Teapot);
 }

@@ -3,8 +3,8 @@
 FOR %%a IN (%*) DO SET "%%a=1"
 IF NOT "%MSVC%"=="1" IF NOT "%CLANG%"=="1" SET MSVC=1
 
-SET CompilerOptionsMsvc=/nologo /std:clatest /FC /Z7 /Od /Ob1
-SET CompilerOptionsClang=-std=c23 -g -fdiagnostics-absolute-paths -O0 -fno-inline -Wall -Wextra -Werror -pedantic -Wno-c23-extensions -Wno-unused-parameter
+SET CompilerOptionsMsvc=/nologo /std:clatest /FC /Z7 /Od /Ob1 /W4 /WX /wd4189 /wd4100
+SET CompilerOptionsClang=-std=c23 -g -fdiagnostics-absolute-paths -O0 -fno-inline -Wall -Wextra -Werror -pedantic -Wno-c23-extensions -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-null-dereference
 
 SET LinkerOptionsMsvc=/INCREMENTAL:NO /OPT:REF /MANIFEST:EMBED
 SET LinkerOptionsClang=-fuse-ld=lld -Xlinker /MAP -Xlinker /MANIFEST:EMBED
@@ -20,7 +20,7 @@ if "%MSVC%"=="1" (
 )
 
 if "%CLANG%"=="1" (
-    clang %CompilerOptionsClang% ..\src\srend.c -DSREND_EXPORTS -shared -o "srend.dll" %LinkerOptionsClang% -Xlinker /EXPORT:RendererInitialize /EXPORT:RendererUpdateAndDraw
+    clang %CompilerOptionsClang% ..\src\srend.c -DSREND_EXPORTS -shared -o "srend.dll" %LinkerOptionsClang% -Xlinker /EXPORT:RendererInitialize -Xlinker /EXPORT:RendererUpdateAndDraw
     clang %CompilerOptionsClang% ..\src\win32_main.c -o "sr.exe" %LinkerOptionsClang% -l user32.lib -l gdi32.lib
 )
 
