@@ -43,10 +43,15 @@ typedef s32                b32;
 #define InvalidCodePath Assert(0)
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof(Array[0]))
+
 #define MAX(A, B) ((A > B) ? (A) : (B))
 #define MIN(A, B) ((A > B) ? (B) : (A))
 #define MAX3(A, B, C) (MAX(MAX(A, B), C))
 #define MIN3(A, B, C) (MIN(MIN(A, B), C))
+#define MAX4(A, B, C, D) (MAX(MAX(A, B), MAX(C, D)))
+#define MIN4(A, B, C, D) (MIN(MIN(A, B), MIN(C, D)))
+
+#define CLAMP(V, V0, V1) (((V) < (V0)) ? (V0) : ((V) > (V1)) ? (V1) : (V))
 
 #define ABS(V) ((V > 0) ? (V) : -(V))
 #define SWAP(A, B)\
@@ -131,6 +136,13 @@ typedef struct
     u32 *Pixels;
 } frame;
 
+typedef struct
+{
+    u32 Width;
+    u32 Height;
+    f32 *Values;
+} depth;
+
 #define OPEN_AND_READ_FILE(Name) buffer (Name)(c8 *FileName)
 typedef OPEN_AND_READ_FILE(open_and_read_file);
 
@@ -163,7 +175,7 @@ typedef struct
     memory_arena Arena;
     input Input;
     frame Frame;
-    frame Depth;
+    depth Depth;
     m4f64 MVP;
 } state;
 

@@ -53,10 +53,20 @@ static LRESULT CALLBACK WindowProc(
             {
                 DeleteObject(FrameBitmap);
             }
-            FrameBitmap = CreateDIBSection(0, &FrameBitmapInfo, DIB_RGB_COLORS, (void **)&GlobalState.Frame.Pixels, 0, 0);
-            SelectObject(FrameDeviceContext, FrameBitmap);
             GlobalState.Frame.Width = FrameBitmapInfo.bmiHeader.biWidth;
             GlobalState.Frame.Height = FrameBitmapInfo.bmiHeader.biHeight;
+            FrameBitmap = CreateDIBSection(0, &FrameBitmapInfo, DIB_RGB_COLORS, (void **)&GlobalState.Frame.Pixels, 0, 0);
+            SelectObject(FrameDeviceContext, FrameBitmap);
+
+            umm PreviousBufferSize = sizeof(u32) * (GlobalState.Depth.Width * GlobalState.Depth.Height);
+            GlobalState.Depth.Width = GlobalState.Frame.Width;
+            GlobalState.Depth.Height = GlobalState.Frame.Height;
+            umm NewBufferSize = sizeof(f32) * (GlobalState.Depth.Width * GlobalState.Depth.Height);
+            if (GlobalState.Depth.Values)
+            {
+                VirtualFree(GlobalState.Depth.Values, PreviousBufferSize, MEM_RELEASE);
+            }
+            GlobalState.Depth.Values = VirtualAlloc(0, NewBufferSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         } break;
 
         case WM_SYSKEYDOWN:
@@ -207,7 +217,14 @@ int WinMain(
     FrameBitmapInfo.bmiHeader.biCompression = BI_RGB;
     FrameDeviceContext = CreateCompatibleDC(0);
 
+    GlobalState.Frame.Width = INITIAL_WIDTH;
+    GlobalState.Frame.Height = INITIAL_HEIGHT;
     FrameBitmap = CreateDIBSection(0, &FrameBitmapInfo, DIB_RGB_COLORS, (void **)&GlobalState.Frame.Pixels, 0, 0);
+
+    GlobalState.Depth.Width = INITIAL_WIDTH;
+    GlobalState.Depth.Height = INITIAL_HEIGHT;
+    umm BufferSize = sizeof(f32) * (GlobalState.Depth.Width * GlobalState.Depth.Height);
+    GlobalState.Depth.Values = VirtualAlloc(0, BufferSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
     RECT WindowRect = { 0, 0, INITIAL_WIDTH, INITIAL_HEIGHT };
     AdjustWindowRectEx(
