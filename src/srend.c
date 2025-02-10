@@ -57,53 +57,27 @@ static void DrawScrollingGradient(state *State)
 
 }
 
-static void DrawPixel(state *State, s32 X, s32 Y, u32 C)
+static void DrawPixel(state *State, s32 X, s32 Y, f32 Depth, u32 C)
 {
     if (X >= 0 && X < (s32)State->Frame.Width && Y >= 0 && Y < (s32)State->Frame.Height)
     {
-        s32 FrameIndex = Y * State->Frame.Width + X;
-        State->Frame.Pixels[FrameIndex] = C;
-    }
-}
-
-static void DrawPoint(state *State, v2s32 P, v4f64 Color)
-{
-    u32 C = ToPixelColor(Color);
-    DrawPixel(State, P.X, P.Y, C);
-}
-
-static void DrawLineH(state* State, s32 X0, s32 Y0, s32 X1, s32 Y1, s32 C)
-{
-    if (X0 > X1)
-    {
-        SWAP(X0, X1);
-        SWAP(Y0, Y1);
-    }
-
-    s32 DX = X1 - X0;
-    s32 DY = Y1 - Y0;
-
-    s32 Direction = (DY < 0) ? -1 : 1;
-    DY *= Direction;
-
-    if (DX != 0)
-    {
-        s32 Y = Y0;
-        s32 DecisionValue = 2 * DY - DX;
-        for (s32 X = X0; X <= X1; ++X)
+        s32 Index = Y * State->Frame.Width + X;
+        f32 ExistingDepth = State->Depth.Values[Index];
+        if (Depth < ExistingDepth)
         {
-            DrawPixel(State, X, Y, C);
-            if (DecisionValue >= 0)
-            {
-                Y += Direction;
-                DecisionValue -= 2 * DX;
-            }
-            DecisionValue += 2 * DY;
+            State->Depth.Values[Index] = Depth;
+            State->Frame.Pixels[Index] = C;
         }
     }
 }
 
-static void DrawLineHDepth(state* State, v4f64 P0, v4f64 P1, s32 C)
+static void DrawPoint(state *State, v4f64 P, v4f64 Color)
+{
+    u32 C = ToPixelColor(Color);
+    DrawPixel(State, (s32)P.X, (s32)P.Y, (f32)P.Z, C);
+}
+
+static void DrawLineH(state* State, v4f64 P0, v4f64 P1, s32 C)
 {
     if (P0.X > P1.X)
     {
@@ -127,13 +101,7 @@ static void DrawLineHDepth(state* State, v4f64 P0, v4f64 P1, s32 C)
 
             f64 DistT = (P1.X - (f64)X) / (f64)DX;
             f32 Depth = (f32)(P0.Z * DistT + P1.Z * (1.0 - DistT)) - 0.0001f;
-            f32 ExistingDepth = State->Depth.Values[Index];
-
-            if (Depth < ExistingDepth)
-            {
-                State->Depth.Values[Index] = Depth;
-                DrawPixel(State, X, Y, C);
-            }
+            DrawPixel(State, X, Y, Depth, C);
 
             if (DecisionValue >= 0)
             {
@@ -145,38 +113,7 @@ static void DrawLineHDepth(state* State, v4f64 P0, v4f64 P1, s32 C)
     }
 }
 
-static void DrawLineV(state* State, s32 X0, s32 Y0, s32 X1, s32 Y1, s32 C)
-{
-    if (Y0 > Y1)
-    {
-        SWAP(X0, X1);
-        SWAP(Y0, Y1);
-    }
-
-    s32 DX = X1 - X0;
-    s32 DY = Y1 - Y0;
-
-    s32 Direction = (DX < 0) ? -1 : 1;
-    DX *= Direction;
-
-    if (DY != 0)
-    {
-        s32 X = X0;
-        s32 DecisionValue = 2 * DX - DY;
-        for (s32 Y = Y0; Y <= Y1; ++Y)
-        {
-            DrawPixel(State, X, Y, C);
-            if (DecisionValue >= 0)
-            {
-                X += Direction;
-                DecisionValue -= 2 * DY;
-            }
-            DecisionValue += 2 * DX;
-        }
-    }
-}
-
-static void DrawLineVDepth(state* State, v4f64 P0, v4f64 P1, s32 C)
+static void DrawLineV(state* State, v4f64 P0, v4f64 P1, s32 C)
 {
     if (P0.X > P1.X)
     {
@@ -200,13 +137,7 @@ static void DrawLineVDepth(state* State, v4f64 P0, v4f64 P1, s32 C)
 
             f64 DistT = (P1.X - (f64)X) / (f64)DX;
             f32 Depth = (f32)(P0.Z * DistT + P1.Z * (1.0 - DistT)) - 0.0001f;
-            f32 ExistingDepth = State->Depth.Values[Index];
-
-            if (Depth < ExistingDepth)
-            {
-                State->Depth.Values[Index] = Depth;
-                DrawPixel(State, X, Y, C);
-            }
+            DrawPixel(State, X, Y, Depth, C);
 
             if (DecisionValue >= 0)
             {
@@ -218,56 +149,34 @@ static void DrawLineVDepth(state* State, v4f64 P0, v4f64 P1, s32 C)
     }
 }
 
-static void DrawLine(state* State, v2s32 P0, v2s32 P1, v4f64 Color)
-{
-    s32 C = ToPixelColor(Color);
-    P0 = ClipScreen(State, P0);
-    P1 = ClipScreen(State, P1);
-    if (ABS(P1.X - P0.X) > ABS(P1.Y - P0.Y))
-    {
-        DrawLineH(State, P0.X, P0.Y, P1.X, P1.Y, C);
-    }
-    else
-    {
-        DrawLineV(State, P0.X, P0.Y, P1.X, P1.Y, C);
-    }
-}
-
-static void DrawLineDepth(state* State, v4f64 P0, v4f64 P1, v4f64 Color)
+static void DrawLine(state* State, v4f64 P0, v4f64 P1, v4f64 Color)
 {
     s32 C = ToPixelColor(Color);
     P0 = ClipScreenDepth(State, P0);
     P1 = ClipScreenDepth(State, P1);
     if (ABS(P1.X - P0.X) > ABS(P1.Y - P0.Y))
     {
-        DrawLineHDepth(State, P0, P1, C);
+        DrawLineH(State, P0, P1, C);
     }
     else
     {
-        DrawLineVDepth(State, P0, P1, C);
+        DrawLineV(State, P0, P1, C);
     }
 }
 
-static void DrawRect(state *State, v2s32 P0, v2s32 P1, v4f64 Color)
+static void DrawRect(state *State, v4f64 P0, v4f64 P1, v4f64 Color)
 {
-    DrawLine(State, V2s32(P0.X, P0.Y), V2s32(P1.X, P0.Y), Color);
-    DrawLine(State, V2s32(P1.X, P0.Y), V2s32(P1.X, P1.Y), Color);
-    DrawLine(State, V2s32(P1.X, P1.Y), V2s32(P0.X, P1.Y), Color);
-    DrawLine(State, V2s32(P0.X, P1.Y), V2s32(P0.X, P0.Y), Color);
+    DrawLine(State, V4f64(P0.X, P0.Y, 0.0, 0.0), V4f64(P1.X, P0.Y, 0.0, 0.0), Color);
+    DrawLine(State, V4f64(P1.X, P0.Y, 0.0, 0.0), V4f64(P1.X, P1.Y, 0.0, 0.0), Color);
+    DrawLine(State, V4f64(P1.X, P1.Y, 0.0, 0.0), V4f64(P0.X, P1.Y, 0.0, 0.0), Color);
+    DrawLine(State, V4f64(P0.X, P1.Y, 0.0, 0.0), V4f64(P0.X, P0.Y, 0.0, 0.0), Color);
 }
 
-static void DrawTriangle(state *State, v2s32 P0, v2s32 P1, v2s32 P2, v4f64 Color)
+static void DrawTriangle(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v4f64 Color)
 {
     DrawLine(State, P0, P1, Color);
     DrawLine(State, P1, P2, Color);
     DrawLine(State, P2, P0, Color);
-}
-
-static void DrawTriangleDepth(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v4f64 Color)
-{
-    DrawLineDepth(State, P0, P1, Color);
-    DrawLineDepth(State, P1, P2, Color);
-    DrawLineDepth(State, P2, P0, Color);
 }
 
 static s32 EdgeFunction(v2s32 P0, v2s32 P1, v2s32 P2)
@@ -282,38 +191,10 @@ static f64 EdgeFunctionDepth(v4f64 P0, v4f64 P1, v4f64 P2)
     return Result;
 }
 
-static b32 PointInside(v2s32 P, v2s32 P0, v2s32 P1, v2s32 P2)
+static void RasterizeTriangle(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v4f64 C)
 {
-    s32 E0 = EdgeFunction(P0, P1, P);
-    s32 E1 = EdgeFunction(P1, P2, P);
-    s32 E2 = EdgeFunction(P2, P0, P);
-    s32 Result = (E0 >= 0) && (E1 >= 0) && (E2 >= 0);
-    return Result;
-}
+    u32 Color = ToPixelColor(C);
 
-static void RasterizeTriangle(state *State, v2s32 P0, v2s32 P1, v2s32 P2, v4f64 C)
-{
-    s32 MinX = MIN4((s32)(State->Frame.Width - 1), P0.X, P1.X, P2.X);
-    s32 MaxX = MAX4(0, P0.X, P1.X, P2.X);
-    s32 MinY = MIN4((s32)(State->Frame.Height - 1), P0.Y, P1.Y, P2.Y);
-    s32 MaxY = MAX4(0, P0.Y, P1.Y, P2.Y);
-
-    for (s32 Y = MinY; Y <= MaxY; ++Y)
-    {
-        for (s32 X = MinX; X <= MaxX; ++X)
-        {
-            v2s32 P = V2s32(X, Y);
-            b32 Inside = PointInside(P, P0, P1, P2);
-            if (Inside)
-            {
-                DrawPoint(State, P, C);
-            }
-        }
-    }
-}
-
-static void RasterizeTriangleDepth(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v4f64 C)
-{
     s32 MinX = (s32)MIN4(State->Frame.Width - 1.0, P0.X, P1.X, P2.X);
     s32 MaxX = (s32)MAX4(0, P0.X, P1.X, P2.X);
     s32 MinY = (s32)MIN4(State->Frame.Height - 1.0, P0.Y, P1.Y, P2.Y);
@@ -339,125 +220,117 @@ static void RasterizeTriangleDepth(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v
                 f64 W2 = E2 / E;
                 // f64 WS = W0 + W1 + W2;
 
-                s32 Index = Y * State->Frame.Width + X;
-
                 f32 Depth = (f32)(W0 * P0.Z + W1 * P1.Z + W2 * P2.Z);
-                f32 ExistingDepth = State->Depth.Values[Index];
-
-                if (Depth < ExistingDepth)
-                {
-                    State->Depth.Values[Index] = Depth;
-                    DrawPoint(State, V2s32(X, Y), C);
-                }
+                DrawPixel(State, X, Y, Depth, Color);
             }
         }
     }
 }
 
-static void DrawMesh_(state *State, v2s32 *Points, s32 PointCount, s32 (*Triangles)[3], s32 TriangleCount)
-{
-    for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
-    {
-        s32 *Triangle = Triangles[TriangleIndex];
-        RasterizeTriangle(State, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], GlobalWhite);
-    }
+// static void DrawMesh_(state *State, v2s32 *Points, s32 PointCount, s32 (*Triangles)[3], s32 TriangleCount)
+// {
+//     for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
+//     {
+//         s32 *Triangle = Triangles[TriangleIndex];
+//         RasterizeTriangle(State, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], GlobalWhite);
+//     }
 
-    for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
-    {
-        s32 *Triangle = Triangles[TriangleIndex];
-        DrawTriangle(State, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], GlobalRed);
-    }
+//     for (s32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
+//     {
+//         s32 *Triangle = Triangles[TriangleIndex];
+//         DrawTriangle(State, Points[Triangle[0]], Points[Triangle[1]], Points[Triangle[2]], GlobalRed);
+//     }
 
-    for (s32 PointIndex = 0; PointIndex < PointCount; ++PointIndex)
-    {
-        v2s32 Point = Points[PointIndex];
-        DrawPoint(State, Point, GlobalGreen);
-    }
-}
+//     for (s32 PointIndex = 0; PointIndex < PointCount; ++PointIndex)
+//     {
+//         v2s32 Point = Points[PointIndex];
+//         DrawPoint(State, Point, GlobalGreen);
+//     }
+// }
 
-static v2s32 ToScreenSpace(v4f64 P, v2s32 Offset)
-{
-    v2s32 Result = V2s32(
-        (s32)(P.X * 150.0 + Offset.X),
-        (s32)(P.Z * 150.0 + Offset.Y)
-    );
-    return Result;
-}
+// static v2s32 ToScreenSpace(v4f64 P, v2s32 Offset)
+// {
+//     v2s32 Result = V2s32(
+//         (s32)(P.X * 150.0 + Offset.X),
+//         (s32)(P.Z * 150.0 + Offset.Y)
+//     );
+//     return Result;
+// }
 
-static v2s32 ToScreenSpaceObj(v4f64 P)
-{
-    v2s32 Result = V2s32(
-        (s32)(P.X * 300.0 + 1000.0),
-        (s32)(P.Y * 300.0 + 300.0)
-    );
-    return Result;
-}
+// static v2s32 ToScreenSpaceObj(v4f64 P)
+// {
+//     v2s32 Result = V2s32(
+//         (s32)(P.X * 300.0 + 1000.0),
+//         (s32)(P.Y * 300.0 + 300.0)
+//     );
+//     return Result;
+// }
 
-static void DrawMesh(state *State, object Mesh, v2s32 Offset)
-{
-    for (u32 TriangleIndex = 0; TriangleIndex < Mesh.TriangleCount; ++TriangleIndex)
-    {
-        u32 *Triangle = Mesh.Triangles + 3 * TriangleIndex;
-        RasterizeTriangle(
-            State, 
-            ToScreenSpace(Mesh.Vertices[Triangle[0]], Offset), 
-            ToScreenSpace(Mesh.Vertices[Triangle[1]], Offset), 
-            ToScreenSpace(Mesh.Vertices[Triangle[2]], Offset), 
-            Mesh.Color
-        );
-    }
+// static void DrawMesh(state *State, object Mesh, v2s32 Offset)
+// {
+//     for (u32 TriangleIndex = 0; TriangleIndex < Mesh.TriangleCount; ++TriangleIndex)
+//     {
+//         u32 *Triangle = Mesh.Triangles + 3 * TriangleIndex;
+//         RasterizeTriangle(
+//             State, 
+//             ToScreenSpace(Mesh.Vertices[Triangle[0]], Offset), 
+//             ToScreenSpace(Mesh.Vertices[Triangle[1]], Offset), 
+//             ToScreenSpace(Mesh.Vertices[Triangle[2]], Offset), 
+//             Mesh.Color
+//         );
+//     }
 
-    for (u32 TriangleIndex = 0; TriangleIndex < Mesh.TriangleCount; ++TriangleIndex)
-    {
-        u32 *Triangle = Mesh.Triangles + 3 * TriangleIndex;
-        DrawTriangle(
-            State, 
-            ToScreenSpace(Mesh.Vertices[Triangle[0]], Offset), 
-            ToScreenSpace(Mesh.Vertices[Triangle[1]], Offset), 
-            ToScreenSpace(Mesh.Vertices[Triangle[2]], Offset), 
-            GlobalRed
-        );
-    }
+//     for (u32 TriangleIndex = 0; TriangleIndex < Mesh.TriangleCount; ++TriangleIndex)
+//     {
+//         u32 *Triangle = Mesh.Triangles + 3 * TriangleIndex;
+//         DrawTriangle(
+//             State, 
+//             ToScreenSpace(Mesh.Vertices[Triangle[0]], Offset), 
+//             ToScreenSpace(Mesh.Vertices[Triangle[1]], Offset), 
+//             ToScreenSpace(Mesh.Vertices[Triangle[2]], Offset), 
+//             GlobalRed
+//         );
+//     }
 
-    for (u32 PointIndex = 0; PointIndex < Mesh.VertexCount; ++PointIndex)
-    {
-        v2s32 Point = ToScreenSpace(Mesh.Vertices[PointIndex], Offset);
-        DrawPoint(State, Point, GlobalGreen);
-    }
-}
+//     for (u32 PointIndex = 0; PointIndex < Mesh.VertexCount; ++PointIndex)
+//     {
+//         v2s32 Point = ToScreenSpace(Mesh.Vertices[PointIndex], Offset);
+//         DrawPoint(State, Point, GlobalGreen);
+//     }
+// }
 
-static void DrawObject(state *State, object Object)
-{
-    for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
-    {
-        u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
-        RasterizeTriangle(
-            State, 
-            ToScreenSpaceObj(Object.Vertices[Triangle[0]]),
-            ToScreenSpaceObj(Object.Vertices[Triangle[1]]),
-            ToScreenSpaceObj(Object.Vertices[Triangle[2]]),
-            Object.Color
-        );
-    }
+// static void DrawObject(state *State, object Object)
+// {
+//     for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+//     {
+//         u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+//         RasterizeTriangle(
+//             State, 
+//             ToScreenSpaceObj(Object.Vertices[Triangle[0]]),
+//             ToScreenSpaceObj(Object.Vertices[Triangle[1]]),
+//             ToScreenSpaceObj(Object.Vertices[Triangle[2]]),
+//             Object.Color
+//         );
+//     }
 
-    for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
-    {
-        u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
-        DrawTriangle(
-            State, 
-            ToScreenSpaceObj(Object.Vertices[Triangle[0]]),
-            ToScreenSpaceObj(Object.Vertices[Triangle[1]]),
-            ToScreenSpaceObj(Object.Vertices[Triangle[2]]),
-            GlobalRed
-        );
-    }
+//     for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+//     {
+//         u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+//         DrawTriangle(
+//             State, 
+//             ToScreenSpaceObj(Object.Vertices[Triangle[0]]),
+//             ToScreenSpaceObj(Object.Vertices[Triangle[1]]),
+//             ToScreenSpaceObj(Object.Vertices[Triangle[2]]),
+//             GlobalRed
+//         );
+//     }
 
-    for (u32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
-    {
-        v2s32 Point = ToScreenSpaceObj(Object.Vertices[PointIndex]);
-        DrawPoint(State, Point, GlobalGreen);
-    }
-}
+//     for (u32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
+//     {
+//         v2s32 Point = ToScreenSpaceObj(Object.Vertices[PointIndex]);
+//         DrawPoint(State, Point, GlobalGreen);
+//     }
+// }
 
 object Mesh1 = {0};
 object Mesh2 = {0};
@@ -562,33 +435,28 @@ static m4f64 ProjectionPerspective(f64 X0, f64 X1, f64 AspectRatio, f64 FieldOfV
 
 static v4f64 NormalToScreenSpace(state* State, v4f64 N)
 {
-    v4f64 Result = N;
-
     if (N.W != 0.0)
     {
-        f64 W = ABS(Result.W);
-        Result.X /= W;
-        Result.Y /= W;
-        Result.Z /= W;
+        f64 W = ABS(N.W);
+        N.X /= W;
+        N.Y /= W;
+        N.Z /= W;
     }
 
-    Result.Y = 0.5 * (1.0 - Result.Y) * (f64)State->Frame.Width;
-    Result.Z = 0.5 * (1.0 + Result.Z) * (f64)State->Frame.Height;
+    v4f64 Result;
+    Result.X = 0.5 * (1.0 - N.Y) * (f64)State->Frame.Width;
+    Result.Y = 0.5 * (1.0 + N.Z) * (f64)State->Frame.Height;
+    Result.Z = N.X;
+    Result.W = N.W;
 
     return Result;
 }
 
-static v2s32 ToScreen(v4f64 S)
-{
-    v2s32 Result = V2s32((s32)S.Y, (s32)S.Z);
-    return Result;
-}
-
-static v4f64 ToScreenDepth(v4f64 S)
-{
-    v4f64 Result = V4f64(S.Y, S.Z, S.X, S.W);
-    return Result;
-}
+// static v2s32 ToScreen(v4f64 S)
+// {
+//     v2s32 Result = V2s32((s32)S.Y, (s32)S.Z);
+//     return Result;
+// }
 
 static void DrawObject3D(state *State, object Object)
 {
@@ -608,17 +476,11 @@ static void DrawObject3D(state *State, object Object)
         v4f64 S1 = NormalToScreenSpace(State, N1);
         v4f64 S2 = NormalToScreenSpace(State, N2);
 
-        if (S0.X >= 0.0 && S0.X <= 1.0 && S1.X >= 0.0 && S1.X <= 1.0 && S2.X >= 0.0 && S2.X <= 1.0)
+        if (S0.Z >= 0.0 && S0.Z <= 1.0 && S1.Z >= 0.0 && S1.Z <= 1.0 && S2.Z >= 0.0 && S2.Z <= 1.0)
         {
-            f64 DistAvg =  (S0.X + S1.X + S2.X) / 3.0;
+            f64 DistAvg =  (S0.Z + S1.Z + S2.Z) / 3.0;
             v4f64 Color = V4f64(0.0, 0.0, 1.0 - DistAvg, 0.0);
-            RasterizeTriangleDepth(
-                State, 
-                ToScreenDepth(S0),
-                ToScreenDepth(S1),
-                ToScreenDepth(S2),
-                Color
-            );
+            RasterizeTriangle(State, S0, S1, S2, Color);
         }
     }
 
@@ -638,22 +500,16 @@ static void DrawObject3D(state *State, object Object)
         v4f64 S1 = NormalToScreenSpace(State, N1);
         v4f64 S2 = NormalToScreenSpace(State, N2);
 
-        if (S0.X >= 0.0 && S0.X <= 1.0 && S1.X >= 0.0 && S1.X <= 1.0 && S2.X >= 0.0 && S2.X <= 1.0)
+        if (S0.Z >= 0.0 && S0.Z <= 1.0 && S1.Z >= 0.0 && S1.Z <= 1.0 && S2.Z >= 0.0 && S2.Z <= 1.0)
         {
-            DrawTriangleDepth(
-                State, 
-                ToScreenDepth(S0),
-                ToScreenDepth(S1),
-                ToScreenDepth(S2),
-                GlobalRed
-            );
+            DrawTriangle(State, S0, S1, S2, GlobalRed);
         }
     }
 
     for (u32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
     {
-        v2s32 Point = ToScreen(NormalToScreenSpace(State, M4f64MulV(State->MVP, Object.Vertices[PointIndex])));
-        DrawPoint(State, Point, GlobalGreen);
+        v4f64 P = NormalToScreenSpace(State, M4f64MulV(State->MVP, Object.Vertices[PointIndex]));
+        DrawPoint(State, P, GlobalGreen);
     }
 }
 
@@ -770,66 +626,65 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
             State->Depth.Values[Index] = 1.0f;
         }
     }
-
-    v4f64 Color = V4f64(1.0, (GlobalFrameCounter & 0x0FFF) / (f64)0x0FFF, 0.0, 1.0);
-    ++GlobalFrameCounter;
-
     DrawScrollingGradient(State);
 
-    DrawPoint(State, V2s32(30, 50), Color);
-    DrawLine(State, V2s32(40, 20), V2s32(120, 80), Color);
+    // v4f64 Color = V4f64(1.0, (GlobalFrameCounter & 0x0FFF) / (f64)0x0FFF, 0.0, 1.0);
+    ++GlobalFrameCounter;
 
-    s32 ScanSize = 101;
-    v2s32 ScanP0 = V2s32(20, 180);
-    v2s32 ScanP1 = V2s32(ScanP0.X + ScanSize, ScanP0.Y + ScanSize);
-    v2s32 ScanCenter = V2s32Div(V2s32Add(ScanP0, ScanP1), 2);
+    // DrawPoint(State, V2s32(30, 50), Color);
+    // DrawLine(State, V2s32(40, 20), V2s32(120, 80), Color);
+
+    // s32 ScanSize = 101;
+    // v2s32 ScanP0 = V2s32(20, 180);
+    // v2s32 ScanP1 = V2s32(ScanP0.X + ScanSize, ScanP0.Y + ScanSize);
+    // v2s32 ScanCenter = V2s32Div(V2s32Add(ScanP0, ScanP1), 2);
     
-    DrawRect(State, V2s32(20, 180), V2s32(121, 281), Color);
-    s32 ScanBorderIndex = (GlobalFrameCounter / 50) % (4 * ScanSize);
-    v2s32 ScanBorderPoint = {{ 0, 0 }};
-    if (ScanBorderIndex < ScanSize)
-    {
-        ScanBorderPoint = V2s32(ScanP0.X + ScanBorderIndex, ScanP0.Y);
-    }
-    else if (ScanBorderIndex < 2 * ScanSize)
-    {
-        ScanBorderPoint = V2s32(ScanP1.X, ScanP0.Y + (ScanBorderIndex - ScanSize));
-    }
-    else if (ScanBorderIndex < 3 * ScanSize)
-    {
-        ScanBorderPoint = V2s32(ScanP1.X - (ScanBorderIndex - 2 * ScanSize), ScanP1.Y);
-    }
-    else if (ScanBorderIndex < 4 * ScanSize)
-    {
-        ScanBorderPoint = V2s32(ScanP0.X, ScanP1.Y - (ScanBorderIndex - 3 * ScanSize));
-    }
-    DrawLine(State, ScanCenter, ScanBorderPoint, Color);
+    // DrawRect(State, V2s32(20, 180), V2s32(121, 281), Color);
+    // s32 ScanBorderIndex = (GlobalFrameCounter / 50) % (4 * ScanSize);
+    // v2s32 ScanBorderPoint = {{ 0, 0 }};
+    // if (ScanBorderIndex < ScanSize)
+    // {
+    //     ScanBorderPoint = V2s32(ScanP0.X + ScanBorderIndex, ScanP0.Y);
+    // }
+    // else if (ScanBorderIndex < 2 * ScanSize)
+    // {
+    //     ScanBorderPoint = V2s32(ScanP1.X, ScanP0.Y + (ScanBorderIndex - ScanSize));
+    // }
+    // else if (ScanBorderIndex < 3 * ScanSize)
+    // {
+    //     ScanBorderPoint = V2s32(ScanP1.X - (ScanBorderIndex - 2 * ScanSize), ScanP1.Y);
+    // }
+    // else if (ScanBorderIndex < 4 * ScanSize)
+    // {
+    //     ScanBorderPoint = V2s32(ScanP0.X, ScanP1.Y - (ScanBorderIndex - 3 * ScanSize));
+    // }
+    // DrawLine(State, ScanCenter, ScanBorderPoint, Color);
 
-    v2s32 Trig0[] = { V2s32(300, 15), V2s32(380, 30), V2s32(350, 80) };
-    v2s32 Trig1[] = { V2s32(350, 100), V2s32(270, 200), V2s32(200, 100) };
+    // v2s32 Trig0[] = { V2s32(300, 15), V2s32(380, 30), V2s32(350, 80) };
+    // v2s32 Trig1[] = { V2s32(350, 100), V2s32(270, 200), V2s32(200, 100) };
 
-    s32 T0 = EdgeFunction(Trig0[2], Trig0[1], Trig0[0]);
-    s32 T1 = EdgeFunction(Trig1[0], Trig1[1], Trig1[2]);
+    // s32 T0 = EdgeFunction(Trig0[2], Trig0[1], Trig0[0]);
+    // s32 T1 = EdgeFunction(Trig1[0], Trig1[1], Trig1[2]);
 
-    RasterizeTriangle(State, Trig1[0], Trig1[1], Trig1[2], GlobalWhite);
+    // RasterizeTriangle(State, Trig1[0], Trig1[1], Trig1[2], GlobalWhite);
 
-    DrawTriangle(State, Trig0[0], Trig0[1], Trig0[2], Color);
-    DrawTriangle(State, Trig1[0], Trig1[1], Trig1[2], Color);
+    // DrawTriangle(State, Trig0[0], Trig0[1], Trig0[2], Color);
+    // DrawTriangle(State, Trig1[0], Trig1[1], Trig1[2], Color);
 
-    v2s32 Points[] =
-    { 
-        V2s32(210, 10), V2s32(240, 8), V2s32(270, 12), V2s32(310, 10), V2s32(340, 5), V2s32(370, 20),
-        V2s32(200, 50), V2s32(260, 48), V2s32(300, 52), V2s32(315, 50), V2s32(343, 42), V2s32(370, 49),
-        V2s32(210, 90), V2s32(240, 88), V2s32(270, 92), V2s32(310, 90), V2s32(340, 92), V2s32(370, 89),
-    };
-    s32 Triangles[][3] = {
-        {0, 7, 6}, {0, 1, 7}, {1, 8, 7}, {1, 2, 8}, {2, 9, 8}, {2, 3, 9}, {3, 10, 9}, {3, 4, 10}, {4, 11, 10}, {4, 5, 11},
-        {6, 13, 12}, {6, 7, 13}, {7, 14, 13}, {7, 8, 14}, {8, 15, 14}, {8, 9, 15}, {9, 16, 15}, {9, 10, 16}, {10, 17, 16}, {10, 11, 17},
-    };
+    // v2s32 Points[] =
+    // { 
+    //     V2s32(210, 10), V2s32(240, 8), V2s32(270, 12), V2s32(310, 10), V2s32(340, 5), V2s32(370, 20),
+    //     V2s32(200, 50), V2s32(260, 48), V2s32(300, 52), V2s32(315, 50), V2s32(343, 42), V2s32(370, 49),
+    //     V2s32(210, 90), V2s32(240, 88), V2s32(270, 92), V2s32(310, 90), V2s32(340, 92), V2s32(370, 89),
+    // };
+    // s32 Triangles[][3] = {
+    //     {0, 7, 6}, {0, 1, 7}, {1, 8, 7}, {1, 2, 8}, {2, 9, 8}, {2, 3, 9}, {3, 10, 9}, {3, 4, 10}, {4, 11, 10}, {4, 5, 11},
+    //     {6, 13, 12}, {6, 7, 13}, {7, 14, 13}, {7, 8, 14}, {8, 15, 14}, {8, 9, 15}, {9, 16, 15}, {9, 10, 16}, {10, 17, 16}, {10, 11, 17},
+    // };
 
-    DrawMesh_(State, Points, ArrayCount(Points), Triangles, ArrayCount(Triangles));
+    // DrawMesh_(State, Points, ArrayCount(Points), Triangles, ArrayCount(Triangles));
 
-    DrawRect(State, V2s32(0, 0), V2s32(State->Frame.Width - 1, State->Frame.Height - 1), Color);
+    // DrawRect(State, V2s32(0, 0), V2s32(State->Frame.Width - 1, State->Frame.Height - 1), Color);
 
     input *Input = &State->Input;
     v4f64 TDelta = V4f64(0, 0, 0, 0);
@@ -885,8 +740,8 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     CameraPosition = V4f64Add(CameraPosition, TDelta);
     CameraRotation = V4f64Add(CameraRotation, RDelta);
 
-    DrawMesh(State, Mesh1, V2s32(600, 200));
-    DrawMesh(State, Mesh2, V2s32(1400, 200));
+    // DrawMesh(State, Mesh1, V2s32(600, 200));
+    // DrawMesh(State, Mesh2, V2s32(1400, 200));
     // DrawObject(State, Teapot);
 
     v4f64 CompassVertices[] = 
