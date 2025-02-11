@@ -6,9 +6,22 @@
 * Linux Layer
 
 ### TODO Renderer:
-* Depth buffer
-* World grid
+* NDC Clipping
+* World grid [WIP]
 * UI with Projection, camera state
 * switching projections
-* Models / OBJ file
 * Fractals
+* Bitmap text
+* BETTER Models / OBJ file
+* FONTS
+
+
+## DONE
+
+### Renderer
+
+* Line Drawing
+* Basic Triangle Rasterization
+* Basic OBJ file parsing
+* Model View Perspective
+* Depth testing
