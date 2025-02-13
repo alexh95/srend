@@ -1,14 +1,14 @@
 #include "vector.h"
 #include "matrix.h"
 
-static m4f64 M4f64(
-    f64 A00, f64 A01, f64 A02, f64 A03,
-    f64 A10, f64 A11, f64 A12, f64 A13,
-    f64 A20, f64 A21, f64 A22, f64 A23,
-    f64 A30, f64 A31, f64 A32, f64 A33
+static m4f32 M4f32(
+    f32 A00, f32 A01, f32 A02, f32 A03,
+    f32 A10, f32 A11, f32 A12, f32 A13,
+    f32 A20, f32 A21, f32 A22, f32 A23,
+    f32 A30, f32 A31, f32 A32, f32 A33
 )
 {
-    m4f64 Result =
+    m4f32 Result =
     {{
         A00, A01, A02, A03,
         A10, A11, A12, A13,
@@ -18,31 +18,31 @@ static m4f64 M4f64(
     return Result;
 }
 
-static inline m4f64 M4f64I(void)
+static inline m4f32 M4f32I(void)
 {
-    m4f64 Result = M4f64(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
+    m4f32 Result = M4f32(
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
     );
     return Result;
 }
 
-static inline m4f64 M4f64Z(void)
+static inline m4f32 M4f32Z(void)
 {
-    m4f64 Result = M4f64(
-        0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0
+    m4f32 Result = M4f32(
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f
     );
     return Result;
 }
 
-static inline v4f64 M4f64MulV(m4f64 M, v4f64 V)
+static inline v4f32 M4f32MulV(m4f32 M, v4f32 V)
 {
-    v4f64 Result = V4f64(
+    v4f32 Result = V4f32(
         V.X * M.A00 + V.Y * M.A01 + V.Z * M.A02 + V.W * M.A03,
         V.X * M.A10 + V.Y * M.A11 + V.Z * M.A12 + V.W * M.A13,
         V.X * M.A20 + V.Y * M.A21 + V.Z * M.A22 + V.W * M.A23,
@@ -51,9 +51,9 @@ static inline v4f64 M4f64MulV(m4f64 M, v4f64 V)
     return Result;
 }
 
-static inline m4f64 M4f64Mul(m4f64 A, m4f64 B)
+static inline m4f32 M4f32Mul(m4f32 A, m4f32 B)
 {
-    m4f64 Result = M4f64(
+    m4f32 Result = M4f32(
         A.A00 * B.A00 + A.A01 * B.A10 + A.A02 * B.A20 + A.A03 * B.A30,
         A.A00 * B.A01 + A.A01 * B.A11 + A.A02 * B.A21 + A.A03 * B.A31,
         A.A00 * B.A02 + A.A01 * B.A12 + A.A02 * B.A22 + A.A03 * B.A32,

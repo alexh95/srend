@@ -15,21 +15,24 @@ typedef union
 
 typedef union
 {
-    f64 E[4];
+    f32 E[4];
     struct
     {
-        f64 X;
-        f64 Y;
-        f64 Z;
-        f64 W;
+        f32 X;
+        f32 Y;
+        f32 Z;
+        f32 W;
     };
     struct
     {
-        f64 R;
-        f64 G;
-        f64 B;
-        f64 A;
+        f32 R;
+        f32 G;
+        f32 B;
+        f32 A;
     };
-} v4f64;
+} v4f32;
+
+typedef v2s32 v2s;
+typedef v4f32 v4;
 
 #endif

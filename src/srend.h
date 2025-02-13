@@ -11,11 +11,11 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw);
 
 typedef struct
 {
-    v4f64 *Vertices;
+    v4f32 *Vertices;
     u32 VertexCount;
     u32 *Triangles;
     u32 TriangleCount;
-    v4f64 Color;
+    v4f32 Color;
 } object;
 
 #endif

@@ -5,26 +5,27 @@
 #include "matrix.c"
 #include "srend.h"
 
-#define PI 3.14159265358979323846
+#define PI 3.141592f
+#define PI64 3.14159265358979323846
 
 static u32 GlobalFrameCounter = 0;
 
-static v4f64 GlobalRed = {{ 1.0, 0.0, 0.0, 1.0 }};
-static v4f64 GlobalGreen = {{ 0.0, 1.0, 0.0, 1.0 }};
-static v4f64 GlobalBlue = {{ 0.0, 0.0, 1.0, 1.0 }};
-static v4f64 GlobalWhite = {{ 1.0, 1.0, 1.0, 1.0 }};
+static v4f32 GlobalRed = {{ 1.0f, 0.0f, 0.0f, 1.0f }};
+static v4f32 GlobalGreen = {{ 0.0f, 1.0f, 0.0f, 1.0f }};
+static v4f32 GlobalBlue = {{ 0.0f, 0.0f, 1.0f, 1.0f }};
+static v4f32 GlobalWhite = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
 
-static v4f64 GlobalOrange = {{ 0.89, 0.45, 0.05, 1.0 }};
+static v4f32 GlobalOrange = {{ 0.89f, 0.45f, 0.05f, 1.0f }};
 
 #define CLIP_OFFSET 0
 
-static inline u32 ToPixelColor(v4f64 Color)
+static inline u32 ToPixelColor(v4f32 Color)
 {
-    u32 Result = ((u8)(Color.A * 255.0) << 24) | ((u8)(Color.R * 255.0) << 16) | ((u8)(Color.G * 255.0) << 8) | ((u8)(Color.B * 255.0) << 0);
+    u32 Result = ((u8)(Color.A * 255.0f) << 24) | ((u8)(Color.R * 255.0f) << 16) | ((u8)(Color.G * 255.0f) << 8) | ((u8)(Color.B * 255.0f) << 0);
     return Result;
 }
 
-static inline v4f64 ClipScreenDepth(state *State, v4f64 S)
+static inline v4f32 ClipScreenDepth(state *State, v4f32 S)
 {
     return S;
 }
@@ -59,13 +60,13 @@ static void DrawPixel(state *State, s32 X, s32 Y, f32 Depth, u32 C)
     }
 }
 
-static void DrawPoint(state *State, v4f64 P, v4f64 Color)
+static void DrawPoint(state *State, v4f32 P, v4f32 Color)
 {
     u32 C = ToPixelColor(Color);
     DrawPixel(State, (s32)P.X, (s32)P.Y, (f32)P.Z, C);
 }
 
-static void DrawLineH(state* State, v4f64 P0, v4f64 P1, s32 C)
+static void DrawLineH(state* State, v4f32 P0, v4f32 P1, s32 C)
 {
     if (P0.X > P1.X)
     {
@@ -86,7 +87,7 @@ static void DrawLineH(state* State, v4f64 P0, v4f64 P1, s32 C)
         {
             s32 Index = Y * State->Frame.Width + X;
 
-            f64 DistT = (P1.X - (f64)X) / (f64)DX;
+            f32 DistT = (P1.X - (f32)X) / (f32)DX;
             f32 Depth = (f32)(P0.Z * DistT + P1.Z * (1.0 - DistT)) - 0.0001f;
             DrawPixel(State, X, Y, Depth, C);
 
@@ -100,7 +101,7 @@ static void DrawLineH(state* State, v4f64 P0, v4f64 P1, s32 C)
     }
 }
 
-static void DrawLineV(state* State, v4f64 P0, v4f64 P1, s32 C)
+static void DrawLineV(state* State, v4f32 P0, v4f32 P1, s32 C)
 {
     if (P0.Y > P1.Y)
     {
@@ -121,7 +122,7 @@ static void DrawLineV(state* State, v4f64 P0, v4f64 P1, s32 C)
         {
             s32 Index = Y * State->Frame.Width + X;
 
-            f64 DistT = (P1.Y - (f64)Y) / (f64)DY;
+            f32 DistT = (P1.Y - (f32)Y) / (f32)DY;
             f32 Depth = (f32)(P0.Z * DistT + P1.Z * (1.0 - DistT)) - 0.0001f;
             DrawPixel(State, X, Y, Depth, C);
 
@@ -135,7 +136,7 @@ static void DrawLineV(state* State, v4f64 P0, v4f64 P1, s32 C)
     }
 }
 
-static void DrawLine(state* State, v4f64 P0, v4f64 P1, v4f64 Color)
+static void DrawLine(state* State, v4f32 P0, v4f32 P1, v4f32 Color)
 {
     s32 C = ToPixelColor(Color);
     P0 = ClipScreenDepth(State, P0);
@@ -150,12 +151,12 @@ static void DrawLine(state* State, v4f64 P0, v4f64 P1, v4f64 Color)
     }
 }
 
-static void DrawRect(state *State, v4f64 P0, v4f64 P1, f32 Depth, v4f64 Color)
+static void DrawRect(state *State, v4f32 P0, v4f32 P1, f32 Depth, v4f32 Color)
 {
-    v4f64 BL = V4f64(MIN(P0.X, P1.X), MIN(P0.Y, P1.Y), Depth, 0.0);
-    v4f64 BR = V4f64(MAX(P0.X, P1.X), MIN(P0.Y, P1.Y), Depth, 0.0);
-    v4f64 TL = V4f64(MIN(P0.X, P1.X), MAX(P0.Y, P1.Y), Depth, 0.0);
-    v4f64 TR = V4f64(MAX(P0.X, P1.X), MAX(P0.Y, P1.Y), Depth, 0.0);
+    v4f32 BL = V4f32(MIN(P0.X, P1.X), MIN(P0.Y, P1.Y), Depth, 0.0);
+    v4f32 BR = V4f32(MAX(P0.X, P1.X), MIN(P0.Y, P1.Y), Depth, 0.0);
+    v4f32 TL = V4f32(MIN(P0.X, P1.X), MAX(P0.Y, P1.Y), Depth, 0.0);
+    v4f32 TR = V4f32(MAX(P0.X, P1.X), MAX(P0.Y, P1.Y), Depth, 0.0);
 
     DrawLine(State, BR, TR, Color);
     DrawLine(State, TR, TL, Color);
@@ -163,7 +164,7 @@ static void DrawRect(state *State, v4f64 P0, v4f64 P1, f32 Depth, v4f64 Color)
     DrawLine(State, BL, BR, Color);
 }
 
-static void DrawTriangle(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v4f64 Color)
+static void DrawTriangle(state *State, v4f32 P0, v4f32 P1, v4f32 P2, v4f32 Color)
 {
     DrawLine(State, P0, P1, Color);
     DrawLine(State, P1, P2, Color);
@@ -176,32 +177,32 @@ static s32 EdgeFunction(v2s32 P0, v2s32 P1, v2s32 P2)
     return Result;
 }
 
-static f64 EdgeFunctionDepth(v4f64 P0, v4f64 P1, v4f64 P2)
+static f32 EdgeFunctionDepth(v4f32 P0, v4f32 P1, v4f32 P2)
 {
-    f64 Result = (P1.X - P0.X) * (P2.Y - P0.Y) - (P1.Y - P0.Y) * (P2.X - P0.X);
+    f32 Result = (P1.X - P0.X) * (P2.Y - P0.Y) - (P1.Y - P0.Y) * (P2.X - P0.X);
     return Result;
 }
 
-static f64 PointInsideTriangle(v4f64 P, v4f64 P0, v4f64 P1, v4f64 P2)
+static f32 PointInsideTriangle(v4f32 P, v4f32 P0, v4f32 P1, v4f32 P2)
 {
-    f64 E = EdgeFunctionDepth(P0, P1, P2);
-    f64 E0 = EdgeFunctionDepth(P0, P1, P);
-    f64 E1 = EdgeFunctionDepth(P1, P2, P);
-    f64 E2 = EdgeFunctionDepth(P2, P0, P);
+    f32 E = EdgeFunctionDepth(P0, P1, P2);
+    f32 E0 = EdgeFunctionDepth(P0, P1, P);
+    f32 E1 = EdgeFunctionDepth(P1, P2, P);
+    f32 E2 = EdgeFunctionDepth(P2, P0, P);
 
-    b32 Inside = (E0 >= 0.0) && (E1 >= 0.0) && (E2 >= 0.0);
+    b32 Inside = (E0 >= 0.0f) && (E1 >= 0.0f) && (E2 >= 0.0f);
     if (Inside)
     {
-        f64 W0 = E0 / E;
-        f64 W1 = E1 / E;
-        f64 W2 = E2 / E;
-        f64 Result = W0 * P0.Z + W1 * P1.Z + W2 * P2.Z;
+        f32 W0 = E0 / E;
+        f32 W1 = E1 / E;
+        f32 W2 = E2 / E;
+        f32 Result = W0 * P0.Z + W1 * P1.Z + W2 * P2.Z;
         return Result;
     }
     return -1.0;
 }
 
-static void RasterizeTriangle(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v4f64 C)
+static void RasterizeTriangle(state *State, v4f32 P0, v4f32 P1, v4f32 P2, v4f32 C)
 {
     u32 Color = ToPixelColor(C);
 
@@ -210,25 +211,25 @@ static void RasterizeTriangle(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v4f64 
     s32 MinY = (s32)MIN4(State->Frame.Height - 1.0, P0.Y, P1.Y, P2.Y);
     s32 MaxY = (s32)MAX4(0, P0.Y, P1.Y, P2.Y);
 
-    f64 E = EdgeFunctionDepth(P0, P1, P2);
+    f32 E = EdgeFunctionDepth(P0, P1, P2);
 
     for (s32 Y = MinY; Y <= MaxY; ++Y)
     {
         for (s32 X = MinX; X <= MaxX; ++X)
         {
-            v4f64 P = V4f64(X, Y, 0.0, 0.0);
+            v4f32 P = V4f32((f32)X, (f32)Y, 0.0f, 0.0f);
 
-            f64 E0 = EdgeFunctionDepth(P0, P1, P);
-            f64 E1 = EdgeFunctionDepth(P1, P2, P);
-            f64 E2 = EdgeFunctionDepth(P2, P0, P);
+            f32 E0 = EdgeFunctionDepth(P0, P1, P);
+            f32 E1 = EdgeFunctionDepth(P1, P2, P);
+            f32 E2 = EdgeFunctionDepth(P2, P0, P);
 
             b32 Inside = (E0 >= 0.0) && (E1 >= 0.0) && (E2 >= 0.0);
             if (Inside)
             {
-                f64 W0 = E0 / E;
-                f64 W1 = E1 / E;
-                f64 W2 = E2 / E;
-                // f64 WS = W0 + W1 + W2;
+                f32 W0 = E0 / E;
+                f32 W1 = E1 / E;
+                f32 W2 = E2 / E;
+                // f32 WS = W0 + W1 + W2;
 
                 f32 Depth = (f32)(W0 * P0.Z + W1 * P1.Z + W2 * P2.Z);
                 DrawPixel(State, X, Y, Depth, Color);
@@ -258,7 +259,7 @@ static void RasterizeTriangle(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v4f64 
 //     }
 // }
 
-// static v2s32 ToScreenSpace(v4f64 P, v2s32 Offset)
+// static v2s32 ToScreenSpace(v4f32 P, v2s32 Offset)
 // {
 //     v2s32 Result = V2s32(
 //         (s32)(P.X * 150.0 + Offset.X),
@@ -267,7 +268,7 @@ static void RasterizeTriangle(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v4f64 
 //     return Result;
 // }
 
-// static v2s32 ToScreenSpaceObj(v4f64 P)
+// static v2s32 ToScreenSpaceObj(v4f32 P)
 // {
 //     v2s32 Result = V2s32(
 //         (s32)(P.X * 300.0 + 1000.0),
@@ -346,130 +347,130 @@ object Mesh1 = {0};
 object Mesh2 = {0};
 object Teapot = {0};
 object Compass = {0};
-v4f64 GlobalOffset = {0};
-v4f64 GlobalRotation = {0};
-v4f64 GlobalScale = {{ 1.0, 1.0, 1.0, 1.0 }};
+v4f32 GlobalOffset = {0};
+v4f32 GlobalRotation = {0};
+v4f32 GlobalScale = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
 
-static m4f64 Model(v4f64 Translation, v4f64 Rotation, v4f64 Scale)
+static m4f32 Model(v4f32 Translation, v4f32 Rotation, v4f32 Scale)
 {
-    m4f64 TranslationMatrix = M4f64(
-        1.0, 0.0, 0.0, Translation.X,
-        0.0, 1.0, 0.0, Translation.Y,
-        0.0, 0.0, 1.0, Translation.Z,
-        0.0, 0.0, 0.0, 1.0
+    m4f32 TranslationMatrix = M4f32(
+        1.0f, 0.0f, 0.0f, Translation.X,
+        0.0f, 1.0f, 0.0f, Translation.Y,
+        0.0f, 0.0f, 1.0f, Translation.Z,
+        0.0f, 0.0f, 0.0f, 1.0f
     );
 
-    f64 SinX = sin(Rotation.X);
-    f64 CosX = cos(Rotation.X);
-    f64 SinY = sin(Rotation.Y);
-    f64 CosY = cos(Rotation.Y);
-    f64 SinZ = sin(Rotation.Z);
-    f64 CosZ = cos(Rotation.Z);
-    m4f64 RotationXMatrix = M4f64(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, CosX, -SinX, 0.0,
-        0.0, SinX, CosX, 0.0,
-        0.0, 0.0, 0.0, 1.0
+    f32 SinX = sinf(Rotation.X);
+    f32 CosX = cosf(Rotation.X);
+    f32 SinY = sinf(Rotation.Y);
+    f32 CosY = cosf(Rotation.Y);
+    f32 SinZ = sinf(Rotation.Z);
+    f32 CosZ = cosf(Rotation.Z);
+    m4f32 RotationXMatrix = M4f32(
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, CosX, -SinX, 0.0f,
+        0.0f, SinX, CosX, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
     );
-    m4f64 RotationYMatrix = M4f64(
-        CosY, 0.0, SinY, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        -SinY, 0.0, CosY, 0.0,
-        0.0, 0.0, 0.0, 1.0
+    m4f32 RotationYMatrix = M4f32(
+        CosY, 0.0f, SinY, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        -SinY, 0.0f, CosY, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
     );
-    m4f64 RotationZMatrix = M4f64(
-        CosZ, -SinZ, 0.0, 0.0,
-        SinZ, CosZ, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
+    m4f32 RotationZMatrix = M4f32(
+        CosZ, -SinZ, 0.0f, 0.0f,
+        SinZ, CosZ, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
     );
-    m4f64 RotationMatrix = M4f64Mul(RotationZMatrix, M4f64Mul(RotationYMatrix, RotationXMatrix));
+    m4f32 RotationMatrix = M4f32Mul(RotationZMatrix, M4f32Mul(RotationYMatrix, RotationXMatrix));
 
-    m4f64 ScaleMatrix = M4f64(
-        Scale.X, 0.0, 0.0, 0.0,
-        0.0, Scale.Y, 0.0, 0.0,
-        0.0, 0.0, Scale.Z, 0.0,
-        0.0, 0.0, 0.0, 1.0
+    m4f32 ScaleMatrix = M4f32(
+        Scale.X, 0.0f, 0.0f, 0.0f,
+        0.0f, Scale.Y, 0.0f, 0.0f,
+        0.0f, 0.0f, Scale.Z, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
     );
-    m4f64 Result = M4f64Mul(TranslationMatrix, M4f64Mul(RotationMatrix, ScaleMatrix));
+    m4f32 Result = M4f32Mul(TranslationMatrix, M4f32Mul(RotationMatrix, ScaleMatrix));
     return Result;
 }
 
-static m4f64 ViewMatrix(v4f64 CameraPosition, v4f64 CameraTargetPosition, v4f64 Up)
+static m4f32 ViewMatrix(v4f32 CameraPosition, v4f32 CameraTargetPosition, v4f32 Up)
 {
-    v4f64 Forward = V4f64Normalize(V4f64Sub(CameraTargetPosition, CameraPosition));
+    v4f32 Forward = V4f32Normalize(V4f32Sub(CameraTargetPosition, CameraPosition));
 
-    v4f64 U = Forward;
-    v4f64 V = V4f64Cross(Forward, Up);
-    v4f64 W = Up;
+    v4f32 U = Forward;
+    v4f32 V = V4f32Cross(Forward, Up);
+    v4f32 W = Up;
 
-    m4f64 Result = M4f64(
-        U.X, U.Y, U.Z, -V4f64Dot(CameraPosition, U),
-        V.X, V.Y, V.Z, -V4f64Dot(CameraPosition, V),
-        W.X, W.Y, W.Z, -V4f64Dot(CameraPosition, W),
-        0.0, 0.0, 0.0, 1.0
+    m4f32 Result = M4f32(
+        U.X, U.Y, U.Z, -V4f32Dot(CameraPosition, U),
+        V.X, V.Y, V.Z, -V4f32Dot(CameraPosition, V),
+        W.X, W.Y, W.Z, -V4f32Dot(CameraPosition, W),
+        0.0f, 0.0f, 0.0f, 1.0f
     );
     return Result;
 }
 
-static m4f64 ProjectionOrtho(f64 X0, f64 X1, f64 Y0, f64 Y1, f64 Z0, f64 Z1)
+static m4f32 ProjectionOrtho(f32 X0, f32 X1, f32 Y0, f32 Y1, f32 Z0, f32 Z1)
 {
-    f64 XS = X1 + X0;
-    f64 YS = Y1 + Y0;
-    f64 ZS = Z1 + Z0;
-    f64 XD = X1 - X0;
-    f64 YD = Y1 - Y0;
-    f64 ZD = Z1 - Z0;
+    f32 XS = X1 + X0;
+    f32 YS = Y1 + Y0;
+    f32 ZS = Z1 + Z0;
+    f32 XD = X1 - X0;
+    f32 YD = Y1 - Y0;
+    f32 ZD = Z1 - Z0;
 
-    m4f64 Result = M4f64(
-        2.0 / XD, 0.0, 0.0, XS / XD,
-        0.0, 2.0 / YD, 0.0, YS / YD,
-        0.0, 0.0, 2.0 / ZD, ZS / ZD,
-        0.0, 0.0, 0.0, 1.0
+    m4f32 Result = M4f32(
+        2.0f / XD, 0.0f, 0.0f, XS / XD,
+        0.0f, 2.0f / YD, 0.0f, YS / YD,
+        0.0f, 0.0f, 2.0f / ZD, ZS / ZD,
+        0.0f, 0.0f, 0.0f, 1.0f
     );
     return Result;
 }
 
 // NOTE(alex): maps the objects in the frustrum to [-1, 1] on Y and Z and X to [0, 1]
-static m4f64 ProjectionPerspective(f64 X0, f64 X1, f64 AspectRatio, f64 FieldOfView)
+static m4f32 ProjectionPerspective(f32 X0, f32 X1, f32 AspectRatio, f32 FieldOfView)
 {
-    f64 FieldOfViewModifier = 1.0 / tan(0.5 * FieldOfView);
-    m4f64 Result = M4f64(
-        1.0 / (X1 - X0), 0.0, 0.0, -X0 / (X1 - X0),
-        0.0, AspectRatio * FieldOfViewModifier, 0.0, 0.0,
-        0.0, 0.0, FieldOfViewModifier, 0.0,
-        1.0, 0.0, 0.0, 0.0
+    f32 FieldOfViewModifier = 1.0f / tanf(0.5f * FieldOfView);
+    m4f32 Result = M4f32(
+        1.0f / (X1 - X0), 0.0f, 0.0f, -X0 / (X1 - X0),
+        0.0f, AspectRatio * FieldOfViewModifier, 0.0f, 0.0f,
+        0.0f, 0.0f, FieldOfViewModifier, 0.0f,
+        1.0f, 0.0f, 0.0f, 0.0f
     );
     return Result;
 }
 
-static v4f64 NormalToScreenSpace(state* State, v4f64 N)
+static v4f32 NormalToScreenSpace(state* State, v4f32 N)
 {
-    if (N.W != 0.0)
+    if (N.W != 0.0f)
     {
-        f64 W = (N.W);
+        f32 W = (N.W);
         N.X /= W;
         N.Y /= W;
         N.Z /= W;
     }
 
-    v4f64 Result;
-    Result.X = CLIP_OFFSET + 0.5 * (1.0 - N.Y) * (f64)(State->Frame.Width - 2 * CLIP_OFFSET);
-    Result.Y = CLIP_OFFSET + 0.5 * (1.0 + N.Z) * (f64)(State->Frame.Height - 2 * CLIP_OFFSET);
+    v4f32 Result;
+    Result.X = CLIP_OFFSET + 0.5f * (1.0f - N.Y) * (f32)(State->Frame.Width - 2 * CLIP_OFFSET);
+    Result.Y = CLIP_OFFSET + 0.5f * (1.0f + N.Z) * (f32)(State->Frame.Height - 2 * CLIP_OFFSET);
     Result.Z = N.X;
     Result.W = N.W;
 
     return Result;
 }
 
-static inline b32 NormalInFront(v4f64 N)
+static inline b32 NormalInFront(v4f32 N)
 {
-    b32 Result = (N.Z >= 0.0) && (N.Z <= 1.0) && (N.W > 0.0);
+    b32 Result = (N.Z >= 0.0f) && (N.Z <= 1.0f) && (N.W > 0.0f);
     return Result;
 }
 
 // NOTE(alex): Side 0 is Right, 1 is Top, 2 is Left and 3 is Bottom
-static b32 IsInsideClipSide(state *State, v4f64 V, u32 Side)
+static b32 IsInsideClipSide(state *State, v4f32 V, u32 Side)
 {
     b32 Result = FALSE;
     switch (Side)
@@ -495,51 +496,51 @@ static b32 IsInsideClipSide(state *State, v4f64 V, u32 Side)
     return Result;
 }
 
-static v4f64 ClipVertexSide(state *State, v4f64 V0, v4f64 V1, u32 Side)
+static v4f32 ClipVertexSide(state *State, v4f32 V0, v4f32 V1, u32 Side)
 {
-    f64 SideL = (f64)CLIP_OFFSET;
-    f64 SideB = (f64)CLIP_OFFSET;
-    f64 SideR = (f64)(State->Frame.Width - 1 - CLIP_OFFSET);
-    f64 SideT = (f64)(State->Frame.Height - 1 - CLIP_OFFSET);
+    f32 SideL = (f32)CLIP_OFFSET;
+    f32 SideB = (f32)CLIP_OFFSET;
+    f32 SideR = (f32)(State->Frame.Width - 1 - CLIP_OFFSET);
+    f32 SideT = (f32)(State->Frame.Height - 1 - CLIP_OFFSET);
 
-    v4f64 Result = {0};
+    v4f32 Result = {0};
     switch (Side)
     {
         case 0:
         {
-            f64 X = SideR;
-            f64 T = (X - V0.X) / (V1.X - V0.X);
-            f64 Y = V0.Y + T * (V1.Y - V0.Y);
-            f64 Z = V0.Z + T * (V1.Z - V0.Z);
-            f64 W = V0.W + T * (V1.W - V0.W);
-            Result = V4f64(X, Y, Z, W);
+            f32 X = SideR;
+            f32 T = (X - V0.X) / (V1.X - V0.X);
+            f32 Y = V0.Y + T * (V1.Y - V0.Y);
+            f32 Z = V0.Z + T * (V1.Z - V0.Z);
+            f32 W = V0.W + T * (V1.W - V0.W);
+            Result = V4f32(X, Y, Z, W);
         } break;
         case 1:
         {
-            f64 Y = SideT;
-            f64 T = (Y - V0.Y) / (V1.Y - V0.Y);
-            f64 X = V0.X + T * (V1.X - V0.X);
-            f64 Z = V0.Z + T * (V1.Z - V0.Z);
-            f64 W = V0.W + T * (V1.W - V0.W);
-            Result = V4f64(X, Y, Z, W);
+            f32 Y = SideT;
+            f32 T = (Y - V0.Y) / (V1.Y - V0.Y);
+            f32 X = V0.X + T * (V1.X - V0.X);
+            f32 Z = V0.Z + T * (V1.Z - V0.Z);
+            f32 W = V0.W + T * (V1.W - V0.W);
+            Result = V4f32(X, Y, Z, W);
         } break;
         case 2:
         {
-            f64 X = SideL;
-            f64 T = (X - V0.X) / (V1.X - V0.X);
-            f64 Y = V0.Y + T * (V1.Y - V0.Y);
-            f64 Z = V0.Z + T * (V1.Z - V0.Z);
-            f64 W = V0.W + T * (V1.W - V0.W);
-            Result = V4f64(X, Y, Z, W);
+            f32 X = SideL;
+            f32 T = (X - V0.X) / (V1.X - V0.X);
+            f32 Y = V0.Y + T * (V1.Y - V0.Y);
+            f32 Z = V0.Z + T * (V1.Z - V0.Z);
+            f32 W = V0.W + T * (V1.W - V0.W);
+            Result = V4f32(X, Y, Z, W);
         } break;
         case 3:
         {
-            f64 Y = SideB;
-            f64 T = (Y - V0.Y) / (V1.Y - V0.Y);
-            f64 X = V0.X + T * (V1.X - V0.X);
-            f64 Z = V0.Z + T * (V1.Z - V0.Z);
-            f64 W = V0.W + T * (V1.W - V0.W);
-            Result = V4f64(X, Y, Z, W);
+            f32 Y = SideB;
+            f32 T = (Y - V0.Y) / (V1.Y - V0.Y);
+            f32 X = V0.X + T * (V1.X - V0.X);
+            f32 Z = V0.Z + T * (V1.Z - V0.Z);
+            f32 W = V0.W + T * (V1.W - V0.W);
+            Result = V4f32(X, Y, Z, W);
         } break;
         default: InvalidCodePath;
     }
@@ -554,22 +555,22 @@ static void DrawObject3D(state *State, object Object)
     // {
     //     u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
 
-    //     v4f64 W0 = Object.Vertices[Triangle[0]];
-    //     v4f64 W1 = Object.Vertices[Triangle[1]];
-    //     v4f64 W2 = Object.Vertices[Triangle[2]];
+    //     v4f32 W0 = Object.Vertices[Triangle[0]];
+    //     v4f32 W1 = Object.Vertices[Triangle[1]];
+    //     v4f32 W2 = Object.Vertices[Triangle[2]];
 
-    //     v4f64 N0 = M4f64MulV(State->MVP, W0);
-    //     v4f64 N1 = M4f64MulV(State->MVP, W1);
-    //     v4f64 N2 = M4f64MulV(State->MVP, W2);
+    //     v4f32 N0 = M4f32MulV(State->MVP, W0);
+    //     v4f32 N1 = M4f32MulV(State->MVP, W1);
+    //     v4f32 N2 = M4f32MulV(State->MVP, W2);
 
-    //     v4f64 S0 = NormalToScreenSpace(State, N0);
-    //     v4f64 S1 = NormalToScreenSpace(State, N1);
-    //     v4f64 S2 = NormalToScreenSpace(State, N2);
+    //     v4f32 S0 = NormalToScreenSpace(State, N0);
+    //     v4f32 S1 = NormalToScreenSpace(State, N1);
+    //     v4f32 S2 = NormalToScreenSpace(State, N2);
 
     //     if (NormalInFront(S0) && NormalInFront(S1) && NormalInFront(S2))
     //     {
-    //         f64 DistAvg =  (S0.Z + S1.Z + S2.Z) / 3.0;
-    //         v4f64 Color = V4f64(0.0, 0.0, 1.0 - DistAvg, 0.0);
+    //         f32 DistAvg =  (S0.Z + S1.Z + S2.Z) / 3.0;
+    //         v4f32 Color = V4f32(0.0, 0.0, 1.0 - DistAvg, 0.0);
     //         RasterizeTriangle(State, S0, S1, S2, Color);
     //     }
     // }
@@ -578,31 +579,31 @@ static void DrawObject3D(state *State, object Object)
     {
         u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
 
-        v4f64 W0 = Object.Vertices[Triangle[0]];
-        v4f64 W1 = Object.Vertices[Triangle[1]];
-        v4f64 W2 = Object.Vertices[Triangle[2]];
+        v4f32 W0 = Object.Vertices[Triangle[0]];
+        v4f32 W1 = Object.Vertices[Triangle[1]];
+        v4f32 W2 = Object.Vertices[Triangle[2]];
 
-        v4f64 N0 = M4f64MulV(State->MVP, W0);
-        v4f64 N1 = M4f64MulV(State->MVP, W1);
-        v4f64 N2 = M4f64MulV(State->MVP, W2);
+        v4f32 N0 = M4f32MulV(State->MVP, W0);
+        v4f32 N1 = M4f32MulV(State->MVP, W1);
+        v4f32 N2 = M4f32MulV(State->MVP, W2);
 
-        v4f64 S0 = NormalToScreenSpace(State, N0);
-        v4f64 S1 = NormalToScreenSpace(State, N1);
-        v4f64 S2 = NormalToScreenSpace(State, N2);
+        v4f32 S0 = NormalToScreenSpace(State, N0);
+        v4f32 S1 = NormalToScreenSpace(State, N1);
+        v4f32 S2 = NormalToScreenSpace(State, N2);
 
         if (NormalInFront(S0) && NormalInFront(S1) && NormalInFront(S2))
         {
             u32 ClippedVertexCount = 3;
-            v4f64 ClippedVertices[MAX_CLIPPED_VERTEX_COUNT] = {S0, S1, S2};
-            v4f64 NewClippedVertices[MAX_CLIPPED_VERTEX_COUNT] = {0};
+            v4f32 ClippedVertices[MAX_CLIPPED_VERTEX_COUNT] = {S0, S1, S2};
+            v4f32 NewClippedVertices[MAX_CLIPPED_VERTEX_COUNT] = {0};
             
             for (u32 SideIndex = 0; SideIndex < 4; ++SideIndex)
             {
                 u32 NewClippedVertexCount = 0;
                 for (u32 VertexIndex = 0; VertexIndex < ClippedVertexCount; ++VertexIndex)
                 {
-                    v4f64 Vertex = ClippedVertices[VertexIndex];
-                    v4f64 NextVertex = ClippedVertices[(VertexIndex + 1) % ClippedVertexCount];
+                    v4f32 Vertex = ClippedVertices[VertexIndex];
+                    v4f32 NextVertex = ClippedVertices[(VertexIndex + 1) % ClippedVertexCount];
 
                     b32 VertexIsInside = IsInsideClipSide(State, Vertex, SideIndex);
                     b32 NextVertexIsInside = IsInsideClipSide(State, NextVertex, SideIndex);
@@ -615,7 +616,7 @@ static void DrawObject3D(state *State, object Object)
                         }
                         else
                         {
-                            v4f64 ClippedVertex = ClipVertexSide(State, Vertex, NextVertex, SideIndex);
+                            v4f32 ClippedVertex = ClipVertexSide(State, Vertex, NextVertex, SideIndex);
                             NewClippedVertices[NewClippedVertexCount++] = ClippedVertex;
                         }
                     }
@@ -623,7 +624,7 @@ static void DrawObject3D(state *State, object Object)
                     {
                         if (NextVertexIsInside)
                         {
-                            v4f64 ClippedVertex = ClipVertexSide(State, Vertex, NextVertex, SideIndex);
+                            v4f32 ClippedVertex = ClipVertexSide(State, Vertex, NextVertex, SideIndex);
                             NewClippedVertices[NewClippedVertexCount++] = ClippedVertex;
                             NewClippedVertices[NewClippedVertexCount++] = NextVertex;
                         }
@@ -637,12 +638,12 @@ static void DrawObject3D(state *State, object Object)
             }
 
             // u32 NewTriangleCount = ClippedVertexCount - 2;
-            v4f64 C0 = ClippedVertices[0];
-            v4f64 C1 = ClippedVertices[1];
+            v4f32 C0 = ClippedVertices[0];
+            v4f32 C1 = ClippedVertices[1];
 
             for (u32 ClippedVertexIndex = 2; ClippedVertexIndex < ClippedVertexCount; ++ClippedVertexIndex)
             {
-                v4f64 C2 = ClippedVertices[ClippedVertexIndex];
+                v4f32 C2 = ClippedVertices[ClippedVertexIndex];
                 RasterizeTriangle(State, C0, C1, C2, GlobalWhite);
                 DrawTriangle(State, C0, C1, C2, GlobalOrange);
                 C1 = C2;
@@ -652,7 +653,7 @@ static void DrawObject3D(state *State, object Object)
 
     for (u32 PointIndex = 0; PointIndex < Object.VertexCount; ++PointIndex)
     {
-        v4f64 N = NormalToScreenSpace(State, M4f64MulV(State->MVP, Object.Vertices[PointIndex]));
+        v4f32 N = NormalToScreenSpace(State, M4f32MulV(State->MVP, Object.Vertices[PointIndex]));
         if (NormalInFront(N))
         {
             DrawPoint(State, N, GlobalGreen);
@@ -702,7 +703,7 @@ static object ParseObject(state *State, c8 *FilePath)
         }
     }
 
-    v4f64 *Vertices = ArenaPushArray(Arena, v4f64, VertexCount);
+    v4f32 *Vertices = ArenaPushArray(Arena, v4f32, VertexCount);
     for (u32 VertexIndex = 0; VertexIndex < VertexCount; ++VertexIndex)
     {
         u32 LineIndex = VertexIndex + FirstVertexIndex;
@@ -710,10 +711,10 @@ static object ParseObject(state *State, c8 *FilePath)
         if (Line.Size > 2)
         {
             string_list NumberParts = StringSplitFrom(Arena, Line, 2, ' ');
-            f64 X = StringParseF64(NumberParts.Strings[0]);
-            f64 Y = StringParseF64(NumberParts.Strings[1]);
-            f64 Z = StringParseF64(NumberParts.Strings[2]);
-            v4f64 Vertex = V4f64(X, Y, Z, 1.0);
+            f32 X = StringParseF32(NumberParts.Strings[0]);
+            f32 Y = StringParseF32(NumberParts.Strings[1]);
+            f32 Z = StringParseF32(NumberParts.Strings[2]);
+            v4f32 Vertex = V4f32(X, Y, Z, 1.0);
             Vertices[VertexIndex] = Vertex;
         }
     }
@@ -754,14 +755,14 @@ static void DrawWorldGrid(state *State)
 {
     for (s32 X = 0; X <= 0; ++X)
     {
-        v4f64 G0 = V4f64((f64)X, -10.0, 0.0, 1.0);
-        v4f64 G1 = V4f64((f64)X, +10.0, 0.0, 1.0);
+        v4f32 G0 = V4f32((f32)X, -10.0f, 0.0f, 1.0f);
+        v4f32 G1 = V4f32((f32)X, +10.0f, 0.0f, 1.0f);
 
-        v4f64 N0 = M4f64MulV(State->MVP, G0);
-        v4f64 N1 = M4f64MulV(State->MVP, G1);
+        v4f32 N0 = M4f32MulV(State->MVP, G0);
+        v4f32 N1 = M4f32MulV(State->MVP, G1);
 
-        v4f64 S0 = NormalToScreenSpace(State, N0);
-        v4f64 S1 = NormalToScreenSpace(State, N1);
+        v4f32 S0 = NormalToScreenSpace(State, N0);
+        v4f32 S1 = NormalToScreenSpace(State, N1);
 
         if (NormalInFront(S0) && NormalInFront(S1))
         {
@@ -771,14 +772,14 @@ static void DrawWorldGrid(state *State)
 
     for (s32 Y = 0; Y <= 0; ++Y)
     {
-        v4f64 G0 = V4f64(-10.0, (f64)Y, 0.0, 1.0);
-        v4f64 G1 = V4f64(+10.0, (f64)Y, 0.0, 1.0);
+        v4f32 G0 = V4f32(-10.0f, (f32)Y, 0.0f, 1.0f);
+        v4f32 G1 = V4f32(+10.0f, (f32)Y, 0.0f, 1.0f);
 
-        v4f64 N0 = M4f64MulV(State->MVP, G0);
-        v4f64 N1 = M4f64MulV(State->MVP, G1);
+        v4f32 N0 = M4f32MulV(State->MVP, G0);
+        v4f32 N1 = M4f32MulV(State->MVP, G1);
 
-        v4f64 S0 = NormalToScreenSpace(State, N0);
-        v4f64 S1 = NormalToScreenSpace(State, N1);
+        v4f32 S0 = NormalToScreenSpace(State, N0);
+        v4f32 S1 = NormalToScreenSpace(State, N1);
 
         if (NormalInFront(S0) && NormalInFront(S1))
         {
@@ -787,14 +788,14 @@ static void DrawWorldGrid(state *State)
     }
 
     {
-        v4f64 G0 = V4f64(0.0, 0.0, -10.0, 1.0);
-        v4f64 G1 = V4f64(0.0, 0.0, +10.0, 1.0);
+        v4f32 G0 = V4f32(0.0f, 0.0f, -10.0f, 1.0f);
+        v4f32 G1 = V4f32(0.0f, 0.0f, +10.0f, 1.0f);
 
-        v4f64 N0 = M4f64MulV(State->MVP, G0);
-        v4f64 N1 = M4f64MulV(State->MVP, G1);
+        v4f32 N0 = M4f32MulV(State->MVP, G0);
+        v4f32 N1 = M4f32MulV(State->MVP, G1);
 
-        v4f64 S0 = NormalToScreenSpace(State, N0);
-        v4f64 S1 = NormalToScreenSpace(State, N1);
+        v4f32 S0 = NormalToScreenSpace(State, N0);
+        v4f32 S1 = NormalToScreenSpace(State, N1);
 
         if (NormalInFront(S0) && NormalInFront(S1))
         {
@@ -803,14 +804,12 @@ static void DrawWorldGrid(state *State)
     }
 }
 
-v4f64 CameraPosition = {{ -4.0, 0.0, 2.0, 1.0 }};
-v4f64 CameraRotation = {{ 0.0, 0.0, 0.0, 0.0 }};
+v4f32 CameraPosition = {{ -4.0f, 0.0f, 2.0f, 1.0f }};
+v4f32 CameraRotation = {{ 0.0f, 0.0f, 0.0f, 0.0f }};
 
 static void DrawUI(state *State)
 {
-    DrawRect(State, V4f64(0.0, 0.0, 0.0, 1.0), V4f64(64.0, 64.0, 0.0, 1.0), -1.0, GlobalRed);
-
-
+    DrawRect(State, V4f32(0.0f, 0.0f, 0.0f, 1.0f), V4f32(64.0f, 64.0f, 0.0f, 1.0f), -1.0f, GlobalRed);
 
     s32 CX = CLAMP(-(s32)CameraPosition.Y * 2, -32, 32) + 32;
     s32 CY = CLAMP((s32)CameraPosition.X * 2, -32, 32) + 32;
@@ -839,7 +838,7 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     }
     DrawScrollingGradient(State);
 
-    // v4f64 Color = V4f64(1.0, (GlobalFrameCounter & 0x0FFF) / (f64)0x0FFF, 0.0, 1.0);
+    // v4f32 Color = V4f32(1.0, (GlobalFrameCounter & 0x0FFF) / (f32)0x0FFF, 0.0, 1.0);
     ++GlobalFrameCounter;
 
     // DrawPoint(State, V2s32(30, 50), Color);
@@ -898,67 +897,67 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     // DrawRect(State, V2s32(0, 0), V2s32(State->Frame.Width - 1, State->Frame.Height - 1), Color);
 
     input *Input = &State->Input;
-    v4f64 TDelta = V4f64(0, 0, 0, 0);
-    v4f64 RDelta = V4f64(0, 0, 0, 0);
+    v4f32 TDelta = V4f32(0.0f, 0.0f, 0.0f, 0.0f);
+    v4f32 RDelta = V4f32(0.0f, 0.0f, 0.0f, 0.0f);
     if (Input->Forward)
     {
-        TDelta.X += 1.0 / 64.0;
+        TDelta.X += 1.0f / 64.0f;
     }
     if (Input->Backward)
     {
-        TDelta.X -= 1.0 / 64.0;
+        TDelta.X -= 1.0f / 64.0f;
     }
     if (Input->Left)
     {
-        TDelta.Y += 1.0 / 64.0;
+        TDelta.Y += 1.0f / 64.0f;
     }
     if (Input->Right)
     {
-        TDelta.Y -= 1.0 / 64.0;
+        TDelta.Y -= 1.0f / 64.0f;
     }
     if (Input->Up)
     {
-        TDelta.Z += 1.0 / 64.0;
+        TDelta.Z += 1.0f / 64.0f;
     }
     if (Input->Down)
     {
-        TDelta.Z -= 1.0 / 64.0;
+        TDelta.Z -= 1.0f / 64.0f;
     }
     if (Input->RollLeft)
     {
-        RDelta.X -= 1.0 / 64.0;
+        RDelta.X -= 1.0f / 64.0f;
     }
     if (Input->RollRight)
     {
-        RDelta.X += 1.0 / 64.0;
+        RDelta.X += 1.0f / 64.0f;
     }
     if (Input->PitchUp)
     {
-        RDelta.Y -= 1.0 / 64.0;
+        RDelta.Y -= 1.0f / 64.0f;
     }
     if (Input->PitchDown)
     {
-        RDelta.Y += 1.0 / 64.0;
+        RDelta.Y += 1.0f / 64.0f;
     }
     if (Input->YawLeft)
     {
-        RDelta.Z += 1.0 / 64.0;
+        RDelta.Z += 1.0f / 64.0f;
     }
     if (Input->YawRight)
     {
-        RDelta.Z -= 1.0 / 64.0;
+        RDelta.Z -= 1.0f / 64.0f;
     }
-    CameraRotation = V4f64Add(CameraRotation, RDelta);
-    CameraPosition = V4f64Add(CameraPosition, TDelta);
+    CameraRotation = V4f32Add(CameraRotation, RDelta);
+    CameraPosition = V4f32Add(CameraPosition, TDelta);
 
     // DrawMesh(State, Mesh1, V2s32(600, 200));
     // DrawMesh(State, Mesh2, V2s32(1400, 200));
     // DrawObject(State, Teapot);
 
-    v4f64 CompassVertices[] = 
+    v4f32 CompassVertices[] = 
     {
-        V4f64(0.0, 0.0, -0.5, 1.0), V4f64(4.0, 0.0, -0.5, 1.0), V4f64(0.0, 2.0, -0.5, 1.0),
-        V4f64(0.5, 0.5, 0.5, 1.0), V4f64(2.0, 0.5, 0.5, 1.0), V4f64(0.5, 1.0, 0.5, 1.0),
+        V4f32(0.0f, 0.0f, -0.5f, 1.0f), V4f32(4.0f, 0.0f, -0.5f, 1.0f), V4f32(0.0f, 2.0f, -0.5f, 1.0f),
+        V4f32(0.5f, 0.5f, 0.5f, 1.0f), V4f32(2.0f, 0.5f, 0.5f, 1.0f), V4f32(0.5f, 1.0f, 0.5f, 1.0f),
     };
 
     u32 CompassTriangles[] =
@@ -983,10 +982,10 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     Compass.Triangles = CompassTriangles;
     Compass.TriangleCount = ArrayCount(CompassTriangles) / 3;
 
-    v4f64 SquareVertices[] =
+    v4f32 SquareVertices[] =
     {
-        V4f64(2.0, -2.0, -2.0, 1.0), V4f64(2.0, -2.0, 2.0, 1.0),
-        V4f64(2.0, 2.0, 2.0, 1.0), V4f64(2.0, 2.0, -2.0, 1.0),
+        V4f32(2.0f, -2.0f, -2.0f, 1.0f), V4f32(2.0f, -2.0f, 2.0f, 1.0f),
+        V4f32(2.0f, 2.0f, 2.0f, 1.0f), V4f32(2.0f, 2.0f, -2.0f, 1.0f),
     };
 
     u32 SquareTriangles[] =
@@ -1001,7 +1000,7 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     Square.Triangles = SquareTriangles;
     Square.TriangleCount = ArrayCount(SquareTriangles) / 3;
 
-    v4f64 TriangleVertices[] = { V4f64(6.0, -2.5, -2.5, 1.0), V4f64(6.0, +2.5, -2.5, 1.0), V4f64(6.0, +0.0, +2.5, 1.0) };
+    v4f32 TriangleVertices[] = { V4f32(6.0f, -2.5f, -2.5f, 1.0f), V4f32(6.0f, +2.5f, -2.5f, 1.0f), V4f32(6.0f, +0.0f, +2.5f, 1.0f) };
     u32 TriangleTriangles[] = { 0, 1, 2 };
 
     object Triangle = {0};
@@ -1010,17 +1009,17 @@ extern RENDERER_UPDATE_AND_DRAW(RendererUpdateAndDraw)
     Triangle.Triangles = TriangleTriangles;
     Triangle.TriangleCount = ArrayCount(TriangleTriangles) / 3;
 
-    // CameraPosition.X = 4.0;
-    m4f64 CameraRotationMatrix = Model(V4f64(0.0, 0.0, 0.0, 0.0), CameraRotation, V4f64(1.0, 1.0, 1.0, 0.0));
-    v4f64 CameraForward = M4f64MulV(CameraRotationMatrix, V4f64(1.0, 0.0, 0.0, 0.0));
-    v4f64 CameraTarget = V4f64Add(CameraPosition, CameraForward);
-    v4f64 CameraUp = M4f64MulV(CameraRotationMatrix, V4f64(0.0, 0.0, 1.0, 0.0));
+    // CameraPosition.X = 4.0f;
+    m4f32 CameraRotationMatrix = Model(V4f32(0.0f, 0.0f, 0.0f, 0.0f), CameraRotation, V4f32(1.0f, 1.0f, 1.0f, 0.0f));
+    v4f32 CameraForward = M4f32MulV(CameraRotationMatrix, V4f32(1.0f, 0.0f, 0.0f, 0.0f));
+    v4f32 CameraTarget = V4f32Add(CameraPosition, CameraForward);
+    v4f32 CameraUp = M4f32MulV(CameraRotationMatrix, V4f32(0.0f, 0.0f, 1.0f, 0.0f));
 
-    m4f64 M = Model(GlobalOffset, GlobalRotation, GlobalScale);
-    m4f64 V = ViewMatrix(CameraPosition, CameraTarget, CameraUp);
-    // m4f64 P = ProjectionOrtho(0.1, 10.0, -5.0, 5.0, -5.0, 5.0);
-    m4f64 P = ProjectionPerspective(0.125, 4.0, (f64)State->Frame.Height / (f64)State->Frame.Width, 0.5 * PI);
-    m4f64 MVP = M4f64Mul(P, M4f64Mul(V, M));
+    m4f32 M = Model(GlobalOffset, GlobalRotation, GlobalScale);
+    m4f32 V = ViewMatrix(CameraPosition, CameraTarget, CameraUp);
+    // m4f32 P = ProjectionOrtho(0.1, 10.0f, -5.0f, 5.0f, -5.0f, 5.0f);
+    m4f32 P = ProjectionPerspective(0.125f, 4.0f, (f32)State->Frame.Height / (f32)State->Frame.Width, 0.5f * PI);
+    m4f32 MVP = M4f32Mul(P, M4f32Mul(V, M));
 
     State->MVP = MVP;
 

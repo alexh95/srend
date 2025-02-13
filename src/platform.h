@@ -176,7 +176,7 @@ typedef struct
     input Input;
     frame Frame;
     depth Depth;
-    m4f64 MVP;
+    m4f32 MVP;
 } state;
 
 #define RENDERER_INITIALIZE(Name) void (Name)(state *State)

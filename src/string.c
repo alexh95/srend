@@ -323,12 +323,12 @@ static s32 StringParseS32(string S)
     return IsNegative ? -Result : Result;
 }
 
-static f64 StringParseF64(string S)
+static f32 StringParseF32(string S)
 {
-    f64 Sign = 1.0;
-    f64 WholePart = 0.0;
-    f64 FractionalPart = 0.0;
-    f64 FractionalDivisor = 1.0;
+    f32 Sign = 1.0;
+    f32 WholePart = 0.0;
+    f32 FractionalPart = 0.0;
+    f32 FractionalDivisor = 1.0;
     b32 SeparatorMet = FALSE;
     for (umm Index = 0; Index < S.Size; ++Index)
     {
@@ -355,7 +355,7 @@ static f64 StringParseF64(string S)
             }
         }
     }
-    f64 Result = Sign * (WholePart + FractionalPart / FractionalDivisor);
+    f32 Result = Sign * (WholePart + FractionalPart / FractionalDivisor);
     return Result;
 }
 

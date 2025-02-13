@@ -5,24 +5,24 @@
 
 typedef union 
 {
-    f64 E[16];
-    f64 C[4][4];
+    f32 E[16];
+    f32 C[4][4];
     struct
     {
-        f64 A00, A01, A02, A03;
-        f64 A10, A11, A12, A13;
-        f64 A20, A21, A22, A23;
-        f64 A30, A31, A32, A33;
+        f32 A00, A01, A02, A03;
+        f32 A10, A11, A12, A13;
+        f32 A20, A21, A22, A23;
+        f32 A30, A31, A32, A33;
     };
     struct
     {
-        f64 R0[4];
-        f64 R1[4];
-        f64 R2[4];
-        f64 R3[4];
+        f32 R0[4];
+        f32 R1[4];
+        f32 R2[4];
+        f32 R3[4];
     };
-} m4f64;
+} m4f32;
 
-typedef m4f64 m4;
+typedef m4f32 m4;
 
 #endif
