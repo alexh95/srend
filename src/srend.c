@@ -14,6 +14,10 @@ static v4f64 GlobalGreen = {{ 0.0, 1.0, 0.0, 1.0 }};
 static v4f64 GlobalBlue = {{ 0.0, 0.0, 1.0, 1.0 }};
 static v4f64 GlobalWhite = {{ 1.0, 1.0, 1.0, 1.0 }};
 
+static v4f64 GlobalOrange = {{ 0.89, 0.45, 0.05, 1.0 }};
+
+#define CLIP_OFFSET 0
+
 static inline u32 ToPixelColor(v4f64 Color)
 {
     u32 Result = ((u8)(Color.A * 255.0) << 24) | ((u8)(Color.R * 255.0) << 16) | ((u8)(Color.G * 255.0) << 8) | ((u8)(Color.B * 255.0) << 0);
@@ -43,7 +47,7 @@ static void DrawScrollingGradient(state *State)
 
 static void DrawPixel(state *State, s32 X, s32 Y, f32 Depth, u32 C)
 {
-    if (X >= 0 && X < (s32)State->Frame.Width && Y >= 0 && Y < (s32)State->Frame.Height)
+    if (X >= CLIP_OFFSET && X < (s32)(State->Frame.Width - CLIP_OFFSET) && Y >= CLIP_OFFSET && Y < (s32)(State->Frame.Height - CLIP_OFFSET))
     {
         s32 Index = Y * State->Frame.Width + X;
         f32 ExistingDepth = State->Depth.Values[Index];
@@ -176,6 +180,25 @@ static f64 EdgeFunctionDepth(v4f64 P0, v4f64 P1, v4f64 P2)
 {
     f64 Result = (P1.X - P0.X) * (P2.Y - P0.Y) - (P1.Y - P0.Y) * (P2.X - P0.X);
     return Result;
+}
+
+static f64 PointInsideTriangle(v4f64 P, v4f64 P0, v4f64 P1, v4f64 P2)
+{
+    f64 E = EdgeFunctionDepth(P0, P1, P2);
+    f64 E0 = EdgeFunctionDepth(P0, P1, P);
+    f64 E1 = EdgeFunctionDepth(P1, P2, P);
+    f64 E2 = EdgeFunctionDepth(P2, P0, P);
+
+    b32 Inside = (E0 >= 0.0) && (E1 >= 0.0) && (E2 >= 0.0);
+    if (Inside)
+    {
+        f64 W0 = E0 / E;
+        f64 W1 = E1 / E;
+        f64 W2 = E2 / E;
+        f64 Result = W0 * P0.Z + W1 * P1.Z + W2 * P2.Z;
+        return Result;
+    }
+    return -1.0;
 }
 
 static void RasterizeTriangle(state *State, v4f64 P0, v4f64 P1, v4f64 P2, v4f64 C)
@@ -431,8 +454,8 @@ static v4f64 NormalToScreenSpace(state* State, v4f64 N)
     }
 
     v4f64 Result;
-    Result.X = 0.5 * (1.0 - N.Y) * (f64)State->Frame.Width;
-    Result.Y = 0.5 * (1.0 + N.Z) * (f64)State->Frame.Height;
+    Result.X = CLIP_OFFSET + 0.5 * (1.0 - N.Y) * (f64)(State->Frame.Width - 2 * CLIP_OFFSET);
+    Result.Y = CLIP_OFFSET + 0.5 * (1.0 + N.Z) * (f64)(State->Frame.Height - 2 * CLIP_OFFSET);
     Result.Z = N.X;
     Result.W = N.W;
 
@@ -445,8 +468,112 @@ static inline b32 NormalInFront(v4f64 N)
     return Result;
 }
 
+// NOTE(alex): Side 0 is Right, 1 is Top, 2 is Left and 3 is Bottom
+static b32 IsInsideClipSide(state *State, v4f64 V, u32 Side)
+{
+    b32 Result = FALSE;
+    switch (Side)
+    {
+        case 0:
+        {
+            Result = (s32)V.X <= ((s32)State->Frame.Width - 1 - CLIP_OFFSET);
+        } break;
+        case 1:
+        {
+            Result = (s32)V.Y <= ((s32)State->Frame.Height - 1 - CLIP_OFFSET);
+        } break;
+        case 2:
+        {
+            Result = (s32)V.X >= CLIP_OFFSET;
+        } break;
+        case 3:
+        {
+            Result = (s32)V.Y >= CLIP_OFFSET;
+        } break;
+        default: InvalidCodePath;
+    }
+    return Result;
+}
+
+static v4f64 ClipVertexSide(state *State, v4f64 V0, v4f64 V1, u32 Side)
+{
+    f64 SideL = (f64)CLIP_OFFSET;
+    f64 SideB = (f64)CLIP_OFFSET;
+    f64 SideR = (f64)(State->Frame.Width - 1 - CLIP_OFFSET);
+    f64 SideT = (f64)(State->Frame.Height - 1 - CLIP_OFFSET);
+
+    v4f64 Result = {0};
+    switch (Side)
+    {
+        case 0:
+        {
+            f64 X = SideR;
+            f64 T = (X - V0.X) / (V1.X - V0.X);
+            f64 Y = V0.Y + T * (V1.Y - V0.Y);
+            f64 Z = V0.Z + T * (V1.Z - V0.Z);
+            f64 W = V0.W + T * (V1.W - V0.W);
+            Result = V4f64(X, Y, Z, W);
+        } break;
+        case 1:
+        {
+            f64 Y = SideT;
+            f64 T = (Y - V0.Y) / (V1.Y - V0.Y);
+            f64 X = V0.X + T * (V1.X - V0.X);
+            f64 Z = V0.Z + T * (V1.Z - V0.Z);
+            f64 W = V0.W + T * (V1.W - V0.W);
+            Result = V4f64(X, Y, Z, W);
+        } break;
+        case 2:
+        {
+            f64 X = SideL;
+            f64 T = (X - V0.X) / (V1.X - V0.X);
+            f64 Y = V0.Y + T * (V1.Y - V0.Y);
+            f64 Z = V0.Z + T * (V1.Z - V0.Z);
+            f64 W = V0.W + T * (V1.W - V0.W);
+            Result = V4f64(X, Y, Z, W);
+        } break;
+        case 3:
+        {
+            f64 Y = SideB;
+            f64 T = (Y - V0.Y) / (V1.Y - V0.Y);
+            f64 X = V0.X + T * (V1.X - V0.X);
+            f64 Z = V0.Z + T * (V1.Z - V0.Z);
+            f64 W = V0.W + T * (V1.W - V0.W);
+            Result = V4f64(X, Y, Z, W);
+        } break;
+        default: InvalidCodePath;
+    }
+    return Result;
+}
+
+#define MAX_CLIPPED_VERTEX_COUNT 7
+
 static void DrawObject3D(state *State, object Object)
 {
+    // for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
+    // {
+    //     u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+
+    //     v4f64 W0 = Object.Vertices[Triangle[0]];
+    //     v4f64 W1 = Object.Vertices[Triangle[1]];
+    //     v4f64 W2 = Object.Vertices[Triangle[2]];
+
+    //     v4f64 N0 = M4f64MulV(State->MVP, W0);
+    //     v4f64 N1 = M4f64MulV(State->MVP, W1);
+    //     v4f64 N2 = M4f64MulV(State->MVP, W2);
+
+    //     v4f64 S0 = NormalToScreenSpace(State, N0);
+    //     v4f64 S1 = NormalToScreenSpace(State, N1);
+    //     v4f64 S2 = NormalToScreenSpace(State, N2);
+
+    //     if (NormalInFront(S0) && NormalInFront(S1) && NormalInFront(S2))
+    //     {
+    //         f64 DistAvg =  (S0.Z + S1.Z + S2.Z) / 3.0;
+    //         v4f64 Color = V4f64(0.0, 0.0, 1.0 - DistAvg, 0.0);
+    //         RasterizeTriangle(State, S0, S1, S2, Color);
+    //     }
+    // }
+
     for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
     {
         u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
@@ -465,31 +592,61 @@ static void DrawObject3D(state *State, object Object)
 
         if (NormalInFront(S0) && NormalInFront(S1) && NormalInFront(S2))
         {
-            f64 DistAvg =  (S0.Z + S1.Z + S2.Z) / 3.0;
-            v4f64 Color = V4f64(0.0, 0.0, 1.0 - DistAvg, 0.0);
-            RasterizeTriangle(State, S0, S1, S2, Color);
-        }
-    }
+            u32 ClippedVertexCount = 3;
+            v4f64 ClippedVertices[MAX_CLIPPED_VERTEX_COUNT] = {S0, S1, S2};
+            v4f64 NewClippedVertices[MAX_CLIPPED_VERTEX_COUNT] = {0};
+            
+            for (u32 SideIndex = 0; SideIndex < 4; ++SideIndex)
+            {
+                u32 NewClippedVertexCount = 0;
+                for (u32 VertexIndex = 0; VertexIndex < ClippedVertexCount; ++VertexIndex)
+                {
+                    v4f64 Vertex = ClippedVertices[VertexIndex];
+                    v4f64 NextVertex = ClippedVertices[(VertexIndex + 1) % ClippedVertexCount];
 
-    for (u32 TriangleIndex = 0; TriangleIndex < Object.TriangleCount; ++TriangleIndex)
-    {
-        u32 *Triangle = Object.Triangles + 3 * TriangleIndex;
+                    b32 VertexIsInside = IsInsideClipSide(State, Vertex, SideIndex);
+                    b32 NextVertexIsInside = IsInsideClipSide(State, NextVertex, SideIndex);
 
-        v4f64 W0 = Object.Vertices[Triangle[0]];
-        v4f64 W1 = Object.Vertices[Triangle[1]];
-        v4f64 W2 = Object.Vertices[Triangle[2]];
+                    if (VertexIsInside)
+                    {
+                        if (NextVertexIsInside)
+                        {
+                            NewClippedVertices[NewClippedVertexCount++] = NextVertex;
+                        }
+                        else
+                        {
+                            v4f64 ClippedVertex = ClipVertexSide(State, Vertex, NextVertex, SideIndex);
+                            NewClippedVertices[NewClippedVertexCount++] = ClippedVertex;
+                        }
+                    }
+                    else
+                    {
+                        if (NextVertexIsInside)
+                        {
+                            v4f64 ClippedVertex = ClipVertexSide(State, Vertex, NextVertex, SideIndex);
+                            NewClippedVertices[NewClippedVertexCount++] = ClippedVertex;
+                            NewClippedVertices[NewClippedVertexCount++] = NextVertex;
+                        }
+                    }
+                }
+                ClippedVertexCount = NewClippedVertexCount;
+                for (u32 Index = 0; Index < NewClippedVertexCount; ++Index)
+                {
+                    ClippedVertices[Index] = NewClippedVertices[Index];
+                }
+            }
 
-        v4f64 N0 = M4f64MulV(State->MVP, W0);
-        v4f64 N1 = M4f64MulV(State->MVP, W1);
-        v4f64 N2 = M4f64MulV(State->MVP, W2);
+            // u32 NewTriangleCount = ClippedVertexCount - 2;
+            v4f64 C0 = ClippedVertices[0];
+            v4f64 C1 = ClippedVertices[1];
 
-        v4f64 S0 = NormalToScreenSpace(State, N0);
-        v4f64 S1 = NormalToScreenSpace(State, N1);
-        v4f64 S2 = NormalToScreenSpace(State, N2);
-
-        if (NormalInFront(S0) && NormalInFront(S1) && NormalInFront(S2))
-        {
-            DrawTriangle(State, S0, S1, S2, GlobalRed);
+            for (u32 ClippedVertexIndex = 2; ClippedVertexIndex < ClippedVertexCount; ++ClippedVertexIndex)
+            {
+                v4f64 C2 = ClippedVertices[ClippedVertexIndex];
+                RasterizeTriangle(State, C0, C1, C2, GlobalWhite);
+                DrawTriangle(State, C0, C1, C2, GlobalOrange);
+                C1 = C2;
+            }
         }
     }
 
@@ -595,7 +752,7 @@ static object ParseObject(state *State, c8 *FilePath)
 
 static void DrawWorldGrid(state *State)
 {
-    for (s32 X = -3; X <= 3; ++X)
+    for (s32 X = 0; X <= 0; ++X)
     {
         v4f64 G0 = V4f64((f64)X, -10.0, 0.0, 1.0);
         v4f64 G1 = V4f64((f64)X, +10.0, 0.0, 1.0);
@@ -612,7 +769,7 @@ static void DrawWorldGrid(state *State)
         }
     }
 
-    for (s32 Y = -2; Y <= -2; ++Y)
+    for (s32 Y = 0; Y <= 0; ++Y)
     {
         v4f64 G0 = V4f64(-10.0, (f64)Y, 0.0, 1.0);
         v4f64 G1 = V4f64(+10.0, (f64)Y, 0.0, 1.0);
