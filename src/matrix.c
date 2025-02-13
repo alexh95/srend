@@ -1,7 +1,7 @@
 #include "vector.h"
 #include "matrix.h"
 
-static m4f32 M4f32(
+static inline m4f32 M4f32(
     f32 A00, f32 A01, f32 A02, f32 A03,
     f32 A10, f32 A11, f32 A12, f32 A13,
     f32 A20, f32 A21, f32 A22, f32 A23,
